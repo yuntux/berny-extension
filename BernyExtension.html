@@ -4,17 +4,18 @@
     <title>BernyForecast</title>
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
 
 
-    <script src="lib/jquery.min.js"></script>
+    <script src="lib/DevExpressDevExtreme-Complete-20.2.3/Lib/js/jquery.min.js"></script>
 <script>window.jQuery || document.write(decodeURIComponent('%3Cscript src="lib/jquery.min.js"%3E%3C/script%3E'))</script>
-    <link rel="stylesheet" type="text/css" href="lib/dx.common.css" />
-    <link rel="stylesheet" type="text/css" href="lib/dx.light.css" />
-    <script src="lib/dx.all.js"></script>
+    <link rel="stylesheet" type="text/css" href="lib/DevExpressDevExtreme-Complete-20.2.3/Lib/css/dx.common.css" />
+    <link rel="stylesheet" type="text/css" href="lib/DevExpressDevExtreme-Complete-20.2.3/Lib/css/dx.light.css" />
+    <script src="lib/DevExpressDevExtreme-Complete-20.2.3/Lib/js/dx.all.js"></script>
     
 
-    <link rel="stylesheet" type="text/css" href="styles.css" />
+    <link rel="stylesheet" type="text/css" href="style.css" />
     <script src="index.js"></script>
     
 
@@ -36,8 +37,8 @@
         function click_forecast(){
             var a = document.getElementById("identifiant").value+":"+document.getElementById("password").value;
             document.getElementById("login_password").value = btoa(a);
-            document.getElementById("host").value = btoa(document.getElementById("env"));
-            document.forms[0].submit();
+            var e = document.getElementById("env");
+            document.getElementById("host").value = btoa(e.options[e.selectedIndex].text);
         }
     </script>
 
@@ -46,17 +47,17 @@
     <div class="demo-container">
         <div id="choix_env">
             Choix de l'environnement :
-            <select id="host">
+            <select id="env">
                         <option selected>https://sandbox-standard.fitnetmanager.com</option>
                         <option>https://tasmane.fitnetmanager.com</option>
             </select>
             <input type="text" placeholder="Identifiant fitnetmanager" id="identifiant"/>
             <input type="password" placeholder="Mot de passe fitnetmanager" id="password"/>
             <form method="get">
-                <input type="hidden" id="host">
-                <input type="hidden" id="login_password">
-                <button onclick="click_forecast();">Forecast</button>
-            </form>
+                <input type="hidden" name="host" id="host">
+                <input type="hidden" name="login_password" id="login_password">
+                <input type="submit" name="submit" value="forecast"  onclick="click_forecast();">Forecast</input>
+            </form><br> <br>
         </div>
         <div id="exportButton"></div>
         <div id="gridContainer"></div>

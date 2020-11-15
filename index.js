@@ -615,6 +615,9 @@ $(function(){
 
 var host = atob(findGetParameter("host"));
 var login_password = findGetParameter("login_password");
+
+console.log(host);
+console.log(login_password);
 var api_root = "/FitnetManager/rest/";
 var client = new ClientRestFitnetManager(host, api_root, login_password);
 //data_factures_pivot = client.get_data_factures_pivot();
