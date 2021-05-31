@@ -27,6 +27,10 @@ def homepage():
     """Render the home page."""
     return flask.render_template('homepage.html', sample='Flask-OAuthlib')
 
+@APP.route('/about')
+def about():
+    return flask.render_template('about.html')
+
 @APP.route('/login')
 def login():
     """Prompt user to authenticate."""
@@ -40,7 +44,8 @@ def authorized():
         raise Exception('state returned to redirect URL does not match!')
     response = MSGRAPH.authorized_response()
     flask.session['access_token'] = response['access_token']
-    return flask.redirect('/graphcall')
+    #return flask.redirect('/graphcall')
+    return flask.redirect('/contacts')
 
 @APP.route('/graphcall')
 def graphcall():
@@ -55,6 +60,99 @@ def graphcall():
                                  graphdata=graphdata,
                                  endpoint=config.RESOURCE + config.API_VERSION + '/' + endpoint,
                                  sample='Flask-OAuthlib')
+
+@APP.route('/mailchimp')
+def mailchimp():
+
+    ########## RECUPERER LES CONTACTS MS GRAPH
+    contacts = []
+    offset = 0
+    while (True) :
+        endpoint = 'me/people?$top='+str(config.MSGRAPH_PAGE_SIZE)+'&select=displayName,scoredEmailAddresses&skip='+str(offset)
+        print(endpoint)
+        headers = {'SdkVersion': 'sample-python-flask',
+                   'x-client-SKU': 'sample-python-flask',
+                   'client-request-id': str(uuid.uuid4()),
+                   'return-client-request-id': 'true'}
+        graphdata = MSGRAPH.get(endpoint, headers=headers).data
+        #print(len(graphdata))
+        #print(graphdata)
+        contacts.extend(graphdata["value"])
+        #print("comp")
+        #print(len(contacts))
+        #print("skip")
+        #print(offset)
+        #print("top")
+        #print(config.MSGRAPH_PAGE_SIZE)
+        #print(len(graphdata["value"]))
+        if (len(graphdata["value"]) < config.MSGRAPH_PAGE_SIZE):
+            break
+        offset = offset + config.MSGRAPH_PAGE_SIZE 
+        #print("new_skip")
+        #print(offset)
+
+    ########## STRUCTURER LES CONTACTS AU FORMAT CIBLE
+    res = {}
+    for contact in contacts:
+        dn = ""
+        if contact['displayName'] != None :
+            dn = contact['displayName']
+        for mail in contact["scoredEmailAddresses"]:
+            res[mail["address"]] = {'displayName': contact['displayName'], 'mail' : mail["address"], 'status' : 'new', 'tags':[]}
+
+
+    ########## RECUPERER LES CONTACTS MAILCHIMP
+    import mailchimp_marketing as MailchimpMarketing
+    from mailchimp_marketing.api_client import ApiClientError
+
+    try:
+      client = MailchimpMarketing.Client()
+      client.set_config({
+        "api_key": config.MAILCHIMP_API_KEY,
+        "server": config.MAILCHIMP_SERVER_PREFIX
+      })
+
+      #res_l = client.lists.get_all_lists()
+      #response = client.lists.get_list(config.MAILCHIMP_LIST_ID)
+      members = []
+      offset = 0
+      #response = client.lists.get_list_members_info(config.MAILCHIMP_LIST_ID, offset=offset, count=config.MAILCHIMP_PAGE_SIZE)
+      #members.extend(response['members'])
+      while (True) :
+        response = client.lists.get_list_members_info(config.MAILCHIMP_LIST_ID, offset=offset, count=config.MAILCHIMP_PAGE_SIZE)
+        members.extend(response['members'])
+        if (len(response['members']) < config.MAILCHIMP_PAGE_SIZE):
+            break
+        offset = offset + config.MAILCHIMP_PAGE_SIZE 
+      
+    except ApiClientError as error:
+      print("Error: {}".format(error.text))
+
+    ########## INTEGRER LES DONNEES MAILCHIMP DANS LES CONTACTS AU FORMAT PIVOT
+    print ("compteur")
+    print (str(len(members)))
+    #print(members)
+    for member in members:
+      mail = member['email_address']
+      #print (mail)
+      if (mail in res.keys()):
+          #print ("ok===============")
+          res[mail]["tags"] = member['tags']
+          res[mail]["status"] = member['status']
+      else :
+          #print ("addresse exclued : " + mail)
+          pass
+
+
+    #from flask_table import Table, Col
+    #class ItemTable(Table):
+    #    displayName = Col('Nom')
+    #    mail = Col('Mail')
+    #    status = Col('Statut')
+    #table = ItemTable(res.items())
+    #return res
+    return flask.render_template('tableau_mailchimp.html', objects=res.values())
+
 
 @APP.route('/contacts')
 def contacts():
@@ -363,13 +461,24 @@ def contacts():
         }
     ]
 }"""
+    endpoint = 'me/people?$top=2500&select=displayName,scoredEmailAddresses'
+    #TODO : gérer la pagination au delà de 2500 objets retournés
+    headers = {'SdkVersion': 'sample-python-flask',
+               'x-client-SKU': 'sample-python-flask',
+               'client-request-id': str(uuid.uuid4()),
+               'return-client-request-id': 'true'}
+    graphdata = MSGRAPH.get(endpoint, headers=headers).data
+
     import json
-    contactList = json.loads(s)["value"]
+    #contactList = json.loads(s)["value"]
+    contactList = graphdata["value"]
     res = [["Nom","Adresse","IntegrationMailChimp"]]
     for contact in contactList:
-        dn = contact['displayName'].replace(';','-')
+        dn = ""
+        if contact['displayName'] != None :
+            dn = contact['displayName']
         for mail in contact["scoredEmailAddresses"]:
-            res.append([dn,mail["address"],"oui"])
+            res.append([dn.replace(';','-'),mail["address"],"oui"])
     csv = ""
     for row in res :
         csv += ';'.join(row)
@@ -381,6 +490,7 @@ def contacts():
                  "attachment; mesContacts.csv"})
 
 
+
 @MSGRAPH.tokengetter
 def get_token():
     """Called by flask_oauthlib.client to retrieve current access token."""
@@ -389,4 +499,5 @@ def get_token():
 if __name__ == '__main__':
     import logging
     logging.basicConfig(filename='error.log',level=logging.DEBUG)
-    APP.run(host="0.0.0.0", port=80)
+    #APP.run(host="0.0.0.0", port=80, debug=False)
+    APP.run(host="0.0.0.0", port=443, debug=True, ssl_context=(config.CERTIF_FULLCHAIN_PATH, config.CERTIF_PRIVKEY_PATH))
