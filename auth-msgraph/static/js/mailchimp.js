@@ -38,8 +38,20 @@ function build_datagrid_widget() {
         }),
 	editing: {
             mode: "popup",
-	    allowUpdating: true
+	    allowUpdating: function (e){
+		if (e.row.data['status'] == "new")
+		    return false;
+		return true;
+	    }
         },
+	    onRowUpdating: function (options) {  
+		//Mailchimp a besoin de tous les champs d'une adresse pour l'enregistrer : il est donc nécessaire de toujours retourner toutes les valeurs, et pas que celles qui ont été modifiées.
+		//console.log(options.oldData);
+		//console.log(options.newData);
+       		$.extend(true, options.newData, $.extend(true, {}, options.oldData, options.newData));  
+		//console.log(options.newData);
+	},  	
+	repaintChangesOnly: true,
         columnAutoWidth: true,
         allowColumnReordering: true,
         filterRow: {
@@ -121,9 +133,7 @@ function build_datagrid_widget() {
                     onClick: function(e) {
 			e.component.getDataSource().store().insert(e.row.data)
 			     .done(function (dataObj, key) {
-				 alert(dataObj["status"]);
 				 e.row.data["status"] = dataObj["status"];
-				 alert(e.row.data);
 				 e.component.repaintRows([e.row.rowIndex])
 			     })
 			     .fail(function (error) {

@@ -22,7 +22,7 @@ import hashlib
 
 APP = flask.Flask(__name__, template_folder='static/templates')
 APP.debug = True
-APP.config['SESSION_TYPE'] = 'filesystem'
+#APP.config['SESSION_TYPE'] = 'filesystem'
 APP.secret_key = config.APP_SECRET_KEY
 OAUTH = OAuth(APP)
 MSGRAPH = OAUTH.remote_app(
@@ -138,7 +138,7 @@ def mailchimpData():
             dn = contact['displayName']
         for mail in contact["scoredEmailAddresses"]:
             if config.DOMAIN_EXCLUSION not in mail["address"]:
-                res[mail["address"]] = {'displayName': contact['displayName'], 'email_address' : mail["address"], 'status' : 'new', 'tags':[]}
+                res[mail["address"]] = {'displayName': contact['displayName'], 'email_address' : mail["address"], 'status' : 'new', 'tags':[], 'vip' : False, 'merge_fields' : {}}
 
 
     ########## RECUPERER LES CONTACTS MAILCHIMP
@@ -164,12 +164,9 @@ def mailchimpData():
       print("Error: {}".format(error.text))
 
     ########## INTEGRER LES DONNEES MAILCHIMP DANS LES CONTACTS AU FORMAT PIVOT
-    #print ("compteur")
-    #print (str(len(members)))
     for member in members:
       mail = member['email_address']
       if (mail in res.keys()):
-          #print(member)
           tags = []
           for t in member['tags']:
               tags.append(t['name'])
@@ -177,12 +174,7 @@ def mailchimpData():
           res[mail]["status"] = member['status']
           res[mail]["vip"] = member['vip']
           res[mail]["merge_fields"] = member['merge_fields']
-          #res[mail]["FNAME"] = member['merge_fields']['FNAME']
-          #res[mail]["LNAME"] = member['merge_fields']['LNAME']
-          #res[mail]["PHONE"] = member['merge_fields']['PHONE']
-          #res[mail]["ADDRESS"] = member['merge_fields']['ADDRESS']
       else :
-          #print ("addresse exclued : " + mail)
           pass
 
 
@@ -208,30 +200,26 @@ def mailchimpAdd():
             "server": config.MAILCHIMP_SERVER_PREFIX
         })
         d = dict({"email_address": email_address})
-        if "status" in form.keys():
-            d["status"] = form['status'] #"subscribed", "unsubscribed", "cleaned", "pending", or "transactional".
-            if d['status'] == "new":
-                d['status'] = "subscribed"
-        if "vip" in form.keys():
-            d["vip"] = form["vip"]
-        if "merge_fields" in form.keys():
-            d['merge_fields'] = form['merge_fields']
+        d["status"] = form['status'] #"subscribed", "unsubscribed", "cleaned", "pending", or "transactional".
+        if d['status'] == "new":
+            d['status'] = "subscribed"
+        d["vip"] = form["vip"]
+        d['merge_fields'] = form['merge_fields']
         print(d)
         h = hashlib.md5(d['email_address'].lower().encode()).hexdigest()
         print(flask.session['mail'] + " ===> client.lists.set_list_member", config.MAILCHIMP_LIST_ID, h, d)
         response = client.lists.set_list_member(config.MAILCHIMP_LIST_ID, h, d)
 
-        if "tags" in form.keys():
-            t = []
-            response = client.lists.tag_search(config.MAILCHIMP_LIST_ID)
-            for tag in response['tags']:
-                if tag['name'] in form['tags']:
-                    t.append(dict({"name": tag['name'], "status": "active"}))
-                else :
-                    t.append(dict({"name": tag['name'], "status": "inactive"}))
+        t = []
+        response = client.lists.tag_search(config.MAILCHIMP_LIST_ID)
+        for tag in response['tags']:
+            if tag['name'] in form['tags']:
+                t.append(dict({"name": tag['name'], "status": "active"}))
+            else :
+                t.append(dict({"name": tag['name'], "status": "inactive"}))
 
-            print(flask.session['mail'] + " ===> client.lists.update_list_member_tags", config.MAILCHIMP_LIST_ID, h, t)
-            response = client.lists.update_list_member_tags(config.MAILCHIMP_LIST_ID, h, {'tags':t})
+        print(flask.session['mail'] + " ===> client.lists.update_list_member_tags", config.MAILCHIMP_LIST_ID, h, t)
+        response = client.lists.update_list_member_tags(config.MAILCHIMP_LIST_ID, h, {'tags':t})
 
         print(response)
         #return jsonify(response)
