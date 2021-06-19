@@ -10,8 +10,15 @@ from flask import request
 from flask import url_for
 from flask_oauthlib.client import OAuth
 from flask_session import Session
+from flask import jsonify
 
 import config
+
+
+import mailchimp_marketing as MailchimpMarketing
+from mailchimp_marketing.api_client import ApiClientError
+import json
+import hashlib
 
 APP = flask.Flask(__name__, template_folder='static/templates')
 APP.debug = True
@@ -58,12 +65,31 @@ def authorized():
     response = MSGRAPH.authorized_response()
     flask.session['access_token'] = response['access_token']
     flask.session['token_expires_at'] = time.time() + int(response['expires_in'])
+
+
+    endpoint = 'me/memberOf'
+    headers = {'SdkVersion': 'sample-python-flask',
+               'x-client-SKU': 'sample-python-flask',
+               'client-request-id': str(uuid.uuid4()),
+               'return-client-request-id': 'true'}
+    groups = MSGRAPH.get(endpoint, headers=headers).data['value']
+    insideAuthorizedGroup = False
+    for group in groups:
+        if group['id'] == config.ID_AUTHORIZED_GROUP:
+            insideAuthorizedGroup = True
+    if insideAuthorizedGroup == False:
+        return "Vous n'apparatenez pas au groupe authorisé à accéder à cette fonction"
+
     endpoint = 'me'
     headers = {'SdkVersion': 'sample-python-flask',
                'x-client-SKU': 'sample-python-flask',
                'client-request-id': str(uuid.uuid4()),
                'return-client-request-id': 'true'}
     graphdata = MSGRAPH.get(endpoint, headers=headers).data
+    if (config.DOMAIN_EXCLUSION not in graphdata['mail']):
+        flask.session={}
+        return "ERREUR : votre email n'appartient pas au domaine authorisé à utiliser cette application."
+    
     flask.session['displayName'] = graphdata['displayName']
     flask.session['mail'] = graphdata['mail']
     redirect_target = flask.session['redirect_target']
@@ -111,13 +137,11 @@ def mailchimpData():
         if contact['displayName'] != None :
             dn = contact['displayName']
         for mail in contact["scoredEmailAddresses"]:
-            res[mail["address"]] = {'displayName': contact['displayName'], 'mail' : mail["address"], 'status' : 'new', 'tags':[]}
+            if config.DOMAIN_EXCLUSION not in mail["address"]:
+                res[mail["address"]] = {'displayName': contact['displayName'], 'mail' : mail["address"], 'status' : 'new', 'tags':[]}
 
 
     ########## RECUPERER LES CONTACTS MAILCHIMP
-    import mailchimp_marketing as MailchimpMarketing
-    from mailchimp_marketing.api_client import ApiClientError
-
     try:
       client = MailchimpMarketing.Client()
       client.set_config({
@@ -125,8 +149,6 @@ def mailchimpData():
         "server": config.MAILCHIMP_SERVER_PREFIX
       })
 
-      #res_l = client.lists.get_all_lists()
-      #response = client.lists.get_list(config.MAILCHIMP_LIST_ID)
       members = []
       offset = 0
       #response = client.lists.get_list_members_info(config.MAILCHIMP_LIST_ID, offset=offset, count=config.MAILCHIMP_PAGE_SIZE)
@@ -144,36 +166,109 @@ def mailchimpData():
     ########## INTEGRER LES DONNEES MAILCHIMP DANS LES CONTACTS AU FORMAT PIVOT
     print ("compteur")
     print (str(len(members)))
-    #print(members)
     for member in members:
       mail = member['email_address']
-      #print (mail)
+      #if (mail in ['n.donguy@groupeonepoint.com']):
+      #  return jsonify(member)
       if (mail in res.keys()):
-          #print ("ok===============")
-          res[mail]["tags"] = member['tags']
+          tags = []
+          for t in member['tags']:
+              tags.append(t['name'])
+          res[mail]["tags"] = tags
           res[mail]["status"] = member['status']
       else :
           #print ("addresse exclued : " + mail)
           pass
 
 
-    #from flask_table import Table, Col
-    #class ItemTable(Table):
-    #    displayName = Col('Nom')
-    #    mail = Col('Mail')
-    #    status = Col('Statut')
-    #table = ItemTable(res.items())
-    #return res
-    from flask import jsonify
     return jsonify(list(res.values()))
+
+@APP.route('/mailchimpAdd', methods=['POST'])
+def mailchimpAdd():
+    if is_session_valid()==False:
+        return flask.redirect( url_for('login', redirect='/mailchimp'))
+
+    form = json.loads(request.form.getlist('values')[0])
+    print(form)
+
+    try:
+        client = MailchimpMarketing.Client()
+        client.set_config({
+            "api_key": config.MAILCHIMP_API_KEY,
+            "server": config.MAILCHIMP_SERVER_PREFIX
+        })
+        #h = hashlib.md5('celine.touze@finances.gouv.fr'.lower().encode()).hexdigest()
+        #response = client.lists.get_list_member(config.MAILCHIMP_LIST_ID,h)
+        d = dict({
+            "email_address": form['mail'], 
+            "status": "subscribed", #"subscribed", "unsubscribed", "cleaned", "pending", or "transactional".
+            "merge_fields": {
+                    #"ADDRESS": {
+                    #  "addr1": "test1",
+                    #  "addr2": "test2",
+                    #  "city": "PARIS",
+                    #  "country": "FR",
+                    #  "state": "IDF",
+                    #  "zip": "75020"
+                    #},
+                    "FNAME": "T1",
+                    "LNAME": "T2",
+                    #"PHONE": "0102030405"
+            }
+        })
+        print("===> client.lists.add_list_member", config.MAILCHIMP_LIST_ID, d)
+        response = client.lists.add_list_member(config.MAILCHIMP_LIST_ID, d)
+        print(response)
+        return jsonify(response)
+    except ApiClientError as error:
+        print("Error: {}".format(error.text))
+        import json
+        error_dic = json.loads(error.text)
+        return jsonify(error.text), error_dic["status"]
+
+    return Response(jsonify("Erreur"), 500)
+
 
 @APP.route('/mailchimp')
 def mailchimp():
-    #return flask.render_template('tableau_mailchimp.html', objects=res.values())
-    return flask.render_template('tableau_mailchimp.html')
+    if is_session_valid()==False:
+        return flask.redirect( url_for('login', redirect='/mailchimp'))
+    try:
+      client = MailchimpMarketing.Client()
+      client.set_config({
+        "api_key": config.MAILCHIMP_API_KEY,
+        "server": config.MAILCHIMP_SERVER_PREFIX
+      })
+      #res_l = client.lists.get_all_lists()
+      response = client.lists.get_list(config.MAILCHIMP_LIST_ID)
+      #return jsonify(response)
+      return flask.render_template('tableau_mailchimp.html', list_id_api=response['id'] ,list_id_web=response['web_id'], list_name=response['name'])
+    except ApiClientError as error:
+      print("Error: {}".format(error.text))
+    return False
+
+
+@APP.route('/mailchimpMembersTags')
+def mailchimpMembersTags():
+    if is_session_valid()==False:
+        return flask.redirect( url_for('login', redirect='/contacts'))
+    
+    try:
+        client = MailchimpMarketing.Client()
+        client.set_config({
+            "api_key": config.MAILCHIMP_API_KEY,
+            "server": config.MAILCHIMP_SERVER_PREFIX
+        })
+        response = client.lists.tag_search(config.MAILCHIMP_LIST_ID)
+        return jsonify(response['tags'])
+    except ApiClientError as error:
+        print("Error: {}".format(error.text))
+    return jsonify(list(res.values()))
 
 @APP.route('/contacts')
 def contacts():
+    if is_session_valid()==False:
+        return flask.redirect( url_for('login', redirect='/contacts'))
     endpoint = 'me/people?$top=2500&select=displayName,scoredEmailAddresses'
     #TODO : gérer la pagination au delà de 2500 objets retournés
     headers = {'SdkVersion': 'sample-python-flask',
@@ -213,6 +308,16 @@ def get_token():
 
 if __name__ == '__main__':
     import logging
+    import sys
+
+    root = logging.getLogger()
+    root.setLevel(logging.DEBUG)
+
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(logging.DEBUG)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    root.addHandler(handler)
     #logging.basicConfig(filename='error.log',level=logging.DEBUG)
     #APP.run(host="0.0.0.0", port=80, debug=False)
     APP.run(host="0.0.0.0", port=443, debug=True, ssl_context=(config.CERTIF_FULLCHAIN_PATH, config.CERTIF_PRIVKEY_PATH))

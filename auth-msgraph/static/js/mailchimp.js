@@ -4,34 +4,28 @@
 
 function build_datagrid_widget() {
 
-    $('#exportButton').dxButton({
-        icon: 'exportpdf',
-        text: 'Export PDF',
-        onClick: function() {
-          const doc = new jsPDF();
-          DevExpress.pdfExporter.exportDataGrid({
-            jsPDFDocument: doc,
-            component: dataGrid
-          }).then(function() {
-            doc.save('Customers.pdf');
-          });
-        }
-    });
-
     var url = "https://beta.tasmane.com";
 
-    //var dataGrid = $("#gridContainer").dxDataGrid({
+    var xmlHttp = new XMLHttpRequest();
+    xmlHttp.open( "GET",url + "/mailchimpMembersTags", false); // false for synchronous request
+    xmlHttp.send( null );
+    var mailchimpMemberTags = JSON.parse(xmlHttp.responseText);
+
     $("#gridContainer").dxDataGrid({
 	dataSource: DevExpress.data.AspNet.createStore({
             key: "mail",
             loadUrl: url + "/mailchimpData",
-	    /*insertUrl: url + "/InsertOrder",
-            updateUrl: url + "/UpdateOrder",
+	    insertUrl: url + "/mailchimpAdd",
+            /*updateUrl: url + "/UpdateOrder",
             deleteUrl: url + "/DeleteOrder",
             onBeforeSend: function(method, ajaxOptions) {
                 ajaxOptions.xhrFields = { withCredentials: true };
             }*/
         }),
+	editing: {
+            mode: "popup",
+	    allowUpdating: true
+        },
         columnAutoWidth: true,
         allowColumnReordering: true,
         filterRow: {
@@ -100,24 +94,61 @@ function build_datagrid_widget() {
         },*/
 
         columns: [
-            /*{
-                caption: "Prénom",
-                dataField:"surname", 
-            }, {
-                caption: "Nom",
-                dataField:"name", 
-            },*/{
+	  {
+                type: "buttons",
+                width: 110,
+                buttons: ["edit", "delete", {
+                    hint: "Ajouter à mailchimp",
+                    text: "Ajouter à mailchimp",
+                    //icon: "repeat",
+                    visible: function(e) {
+                        return e.row.data.status == "new";
+                    },
+                    onClick: function(e) {
+			e.component.getDataSource().store().insert(e.row.data)
+			     .done(function (dataObj, key) {
+				 alert(dataObj["status"]);
+				 e.row.data["status"] = dataObj["status"];
+				 alert(e.row.data);
+				 e.component.repaintRows([e.row.rowIndex])
+			     })
+			     .fail(function (error) {
+				 alert(error.toString());
+			     });
+                    }
+                }]
+              },
+            {
+                caption: "Statut",
+                dataField:"status", 
+            },{
                 caption: "displayName",
                 dataField:"displayName", 
             },{
                 caption: "Mail",
                 dataField:"mail", 
             },{
-                caption: "Statut",
-                dataField:"status", 
-            },{
                 caption: "Tags",
                 dataField:"tags", 
+		editCellTemplate: function($cell, cellData) {
+			var $tagBox = $("<div>").dxTagBox({
+				dataSource: new DevExpress.data.ArrayStore({
+           				data: mailchimpMemberTags,
+            				key: "name"
+        			}),
+				displayExpr: "name",
+        			valueExpr: "name",
+				searchEnabled: true,
+			     	value: cellData.value,
+			     	onValueChanged: function(e) {
+                 			cellData.setValue(e.value)
+             			},
+				placeholder: "Choissisez un tag...",
+				multiline:true,
+		       });
+
+			$cell.append($tagBox);
+		},
             },/*{
                 caption: "Business Domain(s)",
                 dataField:"business_domain", 
@@ -138,6 +169,22 @@ function build_datagrid_widget() {
 
     //}).dxDataGrid('instance');
     });
+
+/*
+    $('#exportButton').dxButton({
+        icon: 'exportpdf',
+        text: 'Export PDF',
+        onClick: function() {
+          const doc = new jsPDF();
+          DevExpress.pdfExporter.exportDataGrid({
+            jsPDFDocument: doc,
+            component:  $("#gridContainer")
+          }).then(function() {
+            doc.save('Customers.pdf');
+          });
+        }
+    });
+*/
 };
 
 
