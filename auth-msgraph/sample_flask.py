@@ -202,6 +202,18 @@ def mailchimpAdd():
 
         h = hashlib.md5(email_address.lower().encode()).hexdigest()
 
+        #MISE A JOUR DES AUTRES ATTRIBUTS
+        d = dict({"email_address": email_address})
+        d["status"] = form['status'] #"subscribed", "unsubscribed", "cleaned", "pending", or "transactional".
+        if d['status'] == "new":
+            d['status'] = "subscribed"
+        d["vip"] = form["vip"]
+        d['merge_fields'] = form['merge_fields']
+        print(d)
+        print(flask.session['mail'] + " ===> client.lists.set_list_member", config.MAILCHIMP_LIST_ID, h, d)
+        response = client.lists.set_list_member(config.MAILCHIMP_LIST_ID, h, d)
+        
+
         #MISE A JOUR DES TAGS
         t = []
         response_tags = client.lists.tag_search(config.MAILCHIMP_LIST_ID)
@@ -214,22 +226,12 @@ def mailchimpAdd():
         print(flask.session['mail'] + " ===> client.lists.update_list_member_tags", config.MAILCHIMP_LIST_ID, h, t)
         response_update_list_member_tags = client.lists.update_list_member_tags(config.MAILCHIMP_LIST_ID, h, {'tags':t})
 
-        #MISE A JOUR DES AUTRES ATTRIBUTS
-        d = dict({"email_address": email_address})
-        d["status"] = form['status'] #"subscribed", "unsubscribed", "cleaned", "pending", or "transactional".
-        if d['status'] == "new":
-            d['status'] = "subscribed"
-        d["vip"] = form["vip"]
-        d['merge_fields'] = form['merge_fields']
-        print(d)
-        print(flask.session['mail'] + " ===> client.lists.set_list_member", config.MAILCHIMP_LIST_ID, h, d)
-        response = client.lists.set_list_member(config.MAILCHIMP_LIST_ID, h, d)
 
         print(response)
         tags = []
         for t in response['tags']:
             tags.append(t['name'])
-        res = dict({'email_address' : response["email_address"], 'status' : response['status'], 'tags' : tags, 'vip' : response['vip'], 'merge_fields' : response['merge_fields']})
+        res = dict({'email_address' : response["email_address"], 'status' : response['status'], 'tags' : form['tags'], 'vip' : response['vip'], 'merge_fields' : response['merge_fields']})
         return jsonify(res)
         #return jsonify(response)
         #return jsonify(True)
