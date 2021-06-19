@@ -2,6 +2,7 @@
 ////////////////// DATAGRID WIDGET ///////////////////
 //////////////////////////////////////////////////////
 
+DevExpress.localization.locale(navigator.language);
 function build_datagrid_widget() {
 
     var url = window.location.protocol + "//" + window.location.hostname;
@@ -42,7 +43,8 @@ function build_datagrid_widget() {
 		if (e.row.data['status'] == "new")
 		    return false;
 		return true;
-	    }
+	    },
+	    refreshMode:"reshape",
         },
 	    onRowUpdating: function (options) {  
 		//Mailchimp a besoin de tous les champs d'une adresse pour l'enregistrer : il est donc nécessaire de toujours retourner toutes les valeurs, et pas que celles qui ont été modifiées.

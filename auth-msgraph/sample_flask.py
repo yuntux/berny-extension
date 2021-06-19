@@ -199,6 +199,22 @@ def mailchimpAdd():
             "api_key": config.MAILCHIMP_API_KEY,
             "server": config.MAILCHIMP_SERVER_PREFIX
         })
+
+        h = hashlib.md5(email_address.lower().encode()).hexdigest()
+
+        #MISE A JOUR DES TAGS
+        t = []
+        response_tags = client.lists.tag_search(config.MAILCHIMP_LIST_ID)
+        for tag in response_tags['tags']:
+            if tag['name'] in form['tags']:
+                t.append(dict({"name": tag['name'], "status": "active"}))
+            else :
+                t.append(dict({"name": tag['name'], "status": "inactive"}))
+
+        print(flask.session['mail'] + " ===> client.lists.update_list_member_tags", config.MAILCHIMP_LIST_ID, h, t)
+        response_update_list_member_tags = client.lists.update_list_member_tags(config.MAILCHIMP_LIST_ID, h, {'tags':t})
+
+        #MISE A JOUR DES AUTRES ATTRIBUTS
         d = dict({"email_address": email_address})
         d["status"] = form['status'] #"subscribed", "unsubscribed", "cleaned", "pending", or "transactional".
         if d['status'] == "new":
@@ -206,24 +222,17 @@ def mailchimpAdd():
         d["vip"] = form["vip"]
         d['merge_fields'] = form['merge_fields']
         print(d)
-        h = hashlib.md5(d['email_address'].lower().encode()).hexdigest()
         print(flask.session['mail'] + " ===> client.lists.set_list_member", config.MAILCHIMP_LIST_ID, h, d)
         response = client.lists.set_list_member(config.MAILCHIMP_LIST_ID, h, d)
 
-        t = []
-        response = client.lists.tag_search(config.MAILCHIMP_LIST_ID)
-        for tag in response['tags']:
-            if tag['name'] in form['tags']:
-                t.append(dict({"name": tag['name'], "status": "active"}))
-            else :
-                t.append(dict({"name": tag['name'], "status": "inactive"}))
-
-        print(flask.session['mail'] + " ===> client.lists.update_list_member_tags", config.MAILCHIMP_LIST_ID, h, t)
-        response = client.lists.update_list_member_tags(config.MAILCHIMP_LIST_ID, h, {'tags':t})
-
         print(response)
+        tags = []
+        for t in response['tags']:
+            tags.append(t['name'])
+        res = dict({'email_address' : response["email_address"], 'status' : response['status'], 'tags' : tags, 'vip' : response['vip'], 'merge_fields' : response['merge_fields']})
+        return jsonify(res)
         #return jsonify(response)
-        return jsonify(True)
+        #return jsonify(True)
     except ApiClientError as error:
         print("Error: {}".format(error.text))
         import json
