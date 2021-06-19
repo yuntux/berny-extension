@@ -138,7 +138,7 @@ def mailchimpData():
             dn = contact['displayName']
         for mail in contact["scoredEmailAddresses"]:
             if config.DOMAIN_EXCLUSION not in mail["address"]:
-                res[mail["address"]] = {'displayName': contact['displayName'], 'mail' : mail["address"], 'status' : 'new', 'tags':[]}
+                res[mail["address"]] = {'displayName': contact['displayName'], 'email_address' : mail["address"], 'status' : 'new', 'tags':[]}
 
 
     ########## RECUPERER LES CONTACTS MAILCHIMP
@@ -164,18 +164,23 @@ def mailchimpData():
       print("Error: {}".format(error.text))
 
     ########## INTEGRER LES DONNEES MAILCHIMP DANS LES CONTACTS AU FORMAT PIVOT
-    print ("compteur")
-    print (str(len(members)))
+    #print ("compteur")
+    #print (str(len(members)))
     for member in members:
       mail = member['email_address']
-      #if (mail in ['n.donguy@groupeonepoint.com']):
-      #  return jsonify(member)
       if (mail in res.keys()):
+          #print(member)
           tags = []
           for t in member['tags']:
               tags.append(t['name'])
           res[mail]["tags"] = tags
           res[mail]["status"] = member['status']
+          res[mail]["vip"] = member['vip']
+          res[mail]["merge_fields"] = member['merge_fields']
+          #res[mail]["FNAME"] = member['merge_fields']['FNAME']
+          #res[mail]["LNAME"] = member['merge_fields']['LNAME']
+          #res[mail]["PHONE"] = member['merge_fields']['PHONE']
+          #res[mail]["ADDRESS"] = member['merge_fields']['ADDRESS']
       else :
           #print ("addresse exclued : " + mail)
           pass
@@ -183,13 +188,18 @@ def mailchimpData():
 
     return jsonify(list(res.values()))
 
-@APP.route('/mailchimpAdd', methods=['POST'])
+@APP.route('/mailchimpAddUpdate', methods=['POST','PUT'])
 def mailchimpAdd():
     if is_session_valid()==False:
         return flask.redirect( url_for('login', redirect='/mailchimp'))
 
+    import json
     form = json.loads(request.form.getlist('values')[0])
     print(form)
+    if 'email_address' in form.keys() :
+        email_address =  form['email_address']
+    else :
+        email_address = request.form.getlist('key')[0]
 
     try:
         client = MailchimpMarketing.Client()
@@ -197,35 +207,40 @@ def mailchimpAdd():
             "api_key": config.MAILCHIMP_API_KEY,
             "server": config.MAILCHIMP_SERVER_PREFIX
         })
-        #h = hashlib.md5('celine.touze@finances.gouv.fr'.lower().encode()).hexdigest()
-        #response = client.lists.get_list_member(config.MAILCHIMP_LIST_ID,h)
-        d = dict({
-            "email_address": form['mail'], 
-            "status": "subscribed", #"subscribed", "unsubscribed", "cleaned", "pending", or "transactional".
-            "merge_fields": {
-                    #"ADDRESS": {
-                    #  "addr1": "test1",
-                    #  "addr2": "test2",
-                    #  "city": "PARIS",
-                    #  "country": "FR",
-                    #  "state": "IDF",
-                    #  "zip": "75020"
-                    #},
-                    "FNAME": "T1",
-                    "LNAME": "T2",
-                    #"PHONE": "0102030405"
-            }
-        })
-        print("===> client.lists.add_list_member", config.MAILCHIMP_LIST_ID, d)
-        response = client.lists.add_list_member(config.MAILCHIMP_LIST_ID, d)
+        d = dict({"email_address": email_address})
+        if "status" in form.keys():
+            d["status"] = form['status'] #"subscribed", "unsubscribed", "cleaned", "pending", or "transactional".
+            if d['status'] == "new":
+                d['status'] = "subscribed"
+        if "vip" in form.keys():
+            d["vip"] = form["vip"]
+        if "merge_fields" in form.keys():
+            d['merge_fields'] = form['merge_fields']
+        print(d)
+        h = hashlib.md5(d['email_address'].lower().encode()).hexdigest()
+        print(flask.session['mail'] + " ===> client.lists.set_list_member", config.MAILCHIMP_LIST_ID, h, d)
+        response = client.lists.set_list_member(config.MAILCHIMP_LIST_ID, h, d)
+
+        if "tags" in form.keys():
+            t = []
+            response = client.lists.tag_search(config.MAILCHIMP_LIST_ID)
+            for tag in response['tags']:
+                if tag['name'] in form['tags']:
+                    t.append(dict({"name": tag['name'], "status": "active"}))
+                else :
+                    t.append(dict({"name": tag['name'], "status": "inactive"}))
+
+            print(flask.session['mail'] + " ===> client.lists.update_list_member_tags", config.MAILCHIMP_LIST_ID, h, t)
+            response = client.lists.update_list_member_tags(config.MAILCHIMP_LIST_ID, h, {'tags':t})
+
         print(response)
-        return jsonify(response)
+        #return jsonify(response)
+        return jsonify(True)
     except ApiClientError as error:
         print("Error: {}".format(error.text))
         import json
         error_dic = json.loads(error.text)
         return jsonify(error.text), error_dic["status"]
-
     return Response(jsonify("Erreur"), 500)
 
 

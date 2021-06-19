@@ -4,20 +4,34 @@
 
 function build_datagrid_widget() {
 
-    var url = "https://beta.tasmane.com";
+    var url = window.location.protocol + "//" + window.location.hostname;
 
     var xmlHttp = new XMLHttpRequest();
     xmlHttp.open( "GET",url + "/mailchimpMembersTags", false); // false for synchronous request
     xmlHttp.send( null );
     var mailchimpMemberTags = JSON.parse(xmlHttp.responseText);
 
+    var xmlHttp = new XMLHttpRequest();
+    xmlHttp.open( "GET",url + "/static/js/lib/countries.json", false); // false for synchronous request
+    xmlHttp.send( null );
+    var countries = JSON.parse(xmlHttp.responseText);
+
+
+    var mailchimpStatus = [
+	    {'code' : 'subscribed', 'name' : 'subscribed'},
+	    {'code' : 'unsubscribed', 'name' : 'unsubscribed'},
+	    {'code' : 'cleaned', 'name' : 'cleaned'},
+	    {'code' : 'pending', 'name' : 'pending'},
+	    {'code' : 'transactional', 'name' : 'transactional'},
+    ];
+
     $("#gridContainer").dxDataGrid({
 	dataSource: DevExpress.data.AspNet.createStore({
-            key: "mail",
+            key: "email_address",
             loadUrl: url + "/mailchimpData",
-	    insertUrl: url + "/mailchimpAdd",
-            /*updateUrl: url + "/UpdateOrder",
-            deleteUrl: url + "/DeleteOrder",
+	    insertUrl: url + "/mailchimpAddUpdate",
+            updateUrl: url + "/mailchimpAddUpdate",
+            /*deleteUrl: url + "/DeleteOrder",
             onBeforeSend: function(method, ajaxOptions) {
                 ajaxOptions.xhrFields = { withCredentials: true };
             }*/
@@ -121,12 +135,17 @@ function build_datagrid_widget() {
             {
                 caption: "Statut",
                 dataField:"status", 
+		lookup: {
+                    dataSource: mailchimpStatus,
+                    displayExpr: "name",
+                    valueExpr: "code"
+                }
             },{
                 caption: "displayName",
                 dataField:"displayName", 
             },{
                 caption: "Mail",
-                dataField:"mail", 
+                dataField:"email_address", 
             },{
                 caption: "Tags",
                 dataField:"tags", 
@@ -149,24 +168,43 @@ function build_datagrid_widget() {
 
 			$cell.append($tagBox);
 		},
-            },/*{
-                caption: "Business Domain(s)",
-                dataField:"business_domain", 
             },{
-                caption: "Grade",
-                dataField:"function", 
+                caption: "Prénom",
+                dataField:"merge_fields.FNAME", 
             },{
-                caption: "Affectation envisagee",
-                dataField:"affectation_envisagee", 
+                caption: "Nom",
+                dataField:"merge_fields.LNAME", 
             },{
-                caption: "Souhaits CED",
-                dataField:"souhaits_ced", 
+                caption: "Téléphone",
+                dataField:"merge_fields.PHONE", 
             },{
-                caption: "Préconisation du dernier DM",
-                dataField:"preco_dernier_dm", 
-            },*/
+                caption: "VIP",
+                dataField:"vip", 
+            },{
+                caption: "Adresse L1",
+                dataField:"merge_fields.ADDRESS.addr1", 
+            },{
+                caption: "Adresse L2",
+                dataField:"merge_fields.ADDRESS.addr2", 
+            },{
+                caption: "Code postal",
+                dataField:"merge_fields.ADDRESS.zip", 
+            },{
+                caption: "Ville",
+                dataField:"merge_fields.ADDRESS.city", 
+            },{
+                caption: "Pays",
+                dataField:"merge_fields.ADDRESS.country", 
+		lookup: {
+                    dataSource: countries,
+                    displayExpr: "name",
+                    valueExpr: "code"
+                }
+            },{
+                caption: "Région",
+                dataField:"merge_fields.ADDRESS.state", 
+            },
        ],
-
     //}).dxDataGrid('instance');
     });
 
