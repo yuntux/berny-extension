@@ -21,8 +21,6 @@ import json
 import hashlib
 
 APP = flask.Flask(__name__, template_folder='static/templates')
-APP.debug = True
-#APP.config['SESSION_TYPE'] = 'filesystem'
 APP.secret_key = config.APP_SECRET_KEY
 OAUTH = OAuth(APP)
 MSGRAPH = OAUTH.remote_app(

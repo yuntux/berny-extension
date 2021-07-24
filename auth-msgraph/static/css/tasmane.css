@@ -33,9 +33,10 @@ img {
     border: 0px;
 }
 
-a {
+a, a:hover {
     background-color: transparent;
     text-decoration: none;
+    color:#fff;
 }
 
 .right {
@@ -51,7 +52,7 @@ ul {
     list-style-type: none;
 }
 
-nav ul li.active {
+nav ul li.active, nav ul li:hover {
     background-color: rgba(0,0,0,0.1);
 }
 nav ul li {

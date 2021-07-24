@@ -48,10 +48,7 @@ function build_datagrid_widget() {
         },
 	    onRowUpdating: function (options) {  
 		//Mailchimp a besoin de tous les champs d'une adresse pour l'enregistrer : il est donc nécessaire de toujours retourner toutes les valeurs, et pas que celles qui ont été modifiées.
-		//console.log(options.oldData);
-		//console.log(options.newData);
        		$.extend(true, options.newData, $.extend(true, {}, options.oldData, options.newData));  
-		//console.log(options.newData);
 	},  	
 	repaintChangesOnly: true,
         columnAutoWidth: true,
@@ -100,7 +97,7 @@ function build_datagrid_widget() {
         
         onExporting: function(e) {
           var workbook = new ExcelJS.Workbook();
-          var worksheet = workbook.addWorksheet('Employees');
+          var worksheet = workbook.addWorksheet('Liste mailchimp');
           
           DevExpress.excelExporter.exportDataGrid({
             component: e.component,
@@ -146,6 +143,7 @@ function build_datagrid_widget() {
               },
             {
                 caption: "Statut",
+		allowEditing: false,
                 dataField:"status", 
 		lookup: {
                     dataSource: mailchimpStatus,
