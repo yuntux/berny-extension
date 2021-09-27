@@ -3,7 +3,7 @@
 //////////////////////////////////////////////////////
 
 DevExpress.localization.locale(navigator.language);
-function build_datagrid_widget() {
+function build_datagrid_widget(loadUrlendpoint) {
 
     var url = window.location.protocol + "//" + window.location.hostname;
 
@@ -29,7 +29,7 @@ function build_datagrid_widget() {
     $("#gridContainer").dxDataGrid({
 	dataSource: DevExpress.data.AspNet.createStore({
             key: "email_address",
-            loadUrl: url + "/mailchimpData",
+            loadUrl: url +  loadUrlendpoint,
 	    insertUrl: url + "/mailchimpAddUpdate",
             updateUrl: url + "/mailchimpAddUpdate",
             /*deleteUrl: url + "/DeleteOrder",
@@ -46,9 +46,32 @@ function build_datagrid_widget() {
 	    },
 	    refreshMode:"reshape",
         },
-	    onRowUpdating: function (options) {  
+	onRowUpdating: function (options) {  
 		//Mailchimp a besoin de tous les champs d'une adresse pour l'enregistrer : il est donc nécessaire de toujours retourner toutes les valeurs, et pas que celles qui ont été modifiées.
-       		$.extend(true, options.newData, $.extend(true, {}, options.oldData, options.newData));  
+		// https://supportcenter.devexpress.com/ticket/details/t216562/dxdatagrid-it-is-impossible-to-pass-all-item-options-to-the-customstore-update-method
+		console.log("========= oldData");
+		console.log(options.oldData);
+		console.log(options.oldData.tags);
+		console.log("========= newData");
+		console.log(options.newData.tags);
+		console.log(options.newData); // le soucis viens probablement que options.newData.tags ne vaut pas la même chose que lorsque l'on inspecte/deplie l'objet newdata
+		console.log(options.newData.tags);
+
+
+		if (options.newData.tags === undefined) {
+       			var new_tags = JSON.parse(JSON.stringify(options.oldData.tags));
+		} else {
+       			var new_tags = JSON.parse(JSON.stringify(options.newData.tags));
+		}
+		$.extend(true, options.newData, $.extend(true, {}, options.oldData, options.newData));
+		options.newData.tags = new_tags;
+
+		console.log("========= AFTER oldData");
+		console.log(options.oldData);
+		console.log(options.oldData.tags);
+		console.log("========= AFTER newData");
+		console.log(options.newData);
+		console.log(options.newData.tags);
 	},  	
 	repaintChangesOnly: true,
         columnAutoWidth: true,
@@ -152,6 +175,7 @@ function build_datagrid_widget() {
                 }
             },{
                 caption: "displayName",
+		allowEditing: false,
                 dataField:"displayName", 
             },{
                 caption: "Mail",
@@ -170,6 +194,7 @@ function build_datagrid_widget() {
 				searchEnabled: true,
 			     	value: cellData.value,
 			     	onValueChanged: function(e) {
+					console.log(e.value);
                  			cellData.setValue(e.value)
              			},
 				placeholder: "Choissisez un tag...",

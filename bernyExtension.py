@@ -1,6 +1,3 @@
-"""Flask-OAuthlib sample for Microsoft Graph"""
-# Copyright (c) Microsoft. All rights reserved. Licensed under the MIT license.
-# See LICENSE in the project root for license information.
 import uuid
 import time
 
@@ -19,17 +16,6 @@ import mailchimp_marketing as MailchimpMarketing
 from mailchimp_marketing.api_client import ApiClientError
 import json
 import hashlib
-
-
-########### Application qui écoute le port 80 et redirige vers le 443
-#HTTPS_REDIRECTOR_APP = flask.Flask(__name__, template_folder='static/templates')
-#@HTTPS_REDIRECTOR_APP.before_request
-#def before_request():
-#    if not request.is_secure:
-#        url = request.url.replace('http://', 'https://', 1)
-#        code = 301
-#        return redirect(url, code=code)
-#################################################################################
 
 
 APP = flask.Flask(__name__, template_folder='static/templates')
@@ -108,10 +94,26 @@ def authorized():
     del flask.session['redirect_target']
     return flask.redirect(redirect_target)
 
+
 @APP.route('/mailchimpData')
 def mailchimpData():
     if is_session_valid()==False:
-        return flask.redirect( url_for('login', redirect='/mailchimp'))
+        return flask.redirect( url_for('login', redirect='/mailchimpData'))
+
+    ########## RECUPERER LES CONTACTS MAILCHIMP
+    members = mailchimpListMembers()
+    res = {}
+    for member in members:
+        mail = member['email_address']
+        res[mail] = member
+
+    return jsonify(list(res.values()))
+
+
+@APP.route('/contact_ms_graph2mailchimpData')
+def contact_ms_graph2mailchimpData():
+    if is_session_valid()==False:
+        return flask.redirect( url_for('login', redirect='/mailchimpData'))
     
     ########## RECUPERER LES CONTACTS MS GRAPH
     contacts = []
@@ -152,6 +154,19 @@ def mailchimpData():
 
 
     ########## RECUPERER LES CONTACTS MAILCHIMP
+    members = mailchimpListMembers()
+
+    ########## INTEGRER LES DONNEES MAILCHIMP DANS LES CONTACTS AU FORMAT PIVOT
+    for member in members:
+      mail = member['email_address']
+      if (mail in res.keys()):
+          #res[mail] = member
+          del res[mail]
+      else :
+          pass
+    return jsonify(list(res.values()))
+
+def mailchimpListMembers():
     try:
       client = MailchimpMarketing.Client()
       client.set_config({
@@ -165,30 +180,24 @@ def mailchimpData():
       #members.extend(response['members'])
       while (True) :
         response = client.lists.get_list_members_info(config.MAILCHIMP_LIST_ID, offset=offset, count=config.MAILCHIMP_PAGE_SIZE)
+        #TODO : si code HTTP retour = 429, attendre une seconde et recommencer
         members.extend(response['members'])
         if (len(response['members']) < config.MAILCHIMP_PAGE_SIZE):
             break
         offset = offset + config.MAILCHIMP_PAGE_SIZE 
-      
-    except ApiClientError as error:
-      print("Error: {}".format(error.text))
 
-    ########## INTEGRER LES DONNEES MAILCHIMP DANS LES CONTACTS AU FORMAT PIVOT
-    for member in members:
-      mail = member['email_address']
-      if (mail in res.keys()):
+      for member in members:
           tags = []
           for t in member['tags']:
               tags.append(t['name'])
-          res[mail]["tags"] = tags
-          res[mail]["status"] = member['status']
-          res[mail]["vip"] = member['vip']
-          res[mail]["merge_fields"] = member['merge_fields']
-      else :
-          pass
+          member["tags"] = tags
+          member['displayName'] = member['merge_fields']['FNAME'] + " " + member['merge_fields']['LNAME'] 
+      return members
+      
+    except ApiClientError as error:
+      print("Error: {}".format(error.text))
+      return False
 
-
-    return jsonify(list(res.values()))
 
 @APP.route('/mailchimpAddUpdate', methods=['POST','PUT'])
 def mailchimpAdd():
@@ -212,17 +221,20 @@ def mailchimpAdd():
 
         h = hashlib.md5(email_address.lower().encode()).hexdigest()
 
-        #MISE A JOUR DES AUTRES ATTRIBUTS
+
+        # CREATION ou MISE A JOUR DU MEMBRE
         d = dict({"email_address": email_address})
         d["status"] = form['status'] #"subscribed", "unsubscribed", "cleaned", "pending", or "transactional".
-        if d['status'] == "new":
+        if d['status'] in ["new", ""]:
             d['status'] = "subscribed"
         d["vip"] = form["vip"]
         d['merge_fields'] = form['merge_fields']
         print(d)
         print(flask.session['mail'] + " ===> client.lists.set_list_member", config.MAILCHIMP_LIST_ID, h, d)
         response = client.lists.set_list_member(config.MAILCHIMP_LIST_ID, h, d)
-        
+        #TODO : si code HTTP retour = 429, attendre une seconde et recommencer
+        print(response)
+
 
         #MISE A JOUR DES TAGS
         t = []
@@ -235,16 +247,12 @@ def mailchimpAdd():
 
         print(flask.session['mail'] + " ===> client.lists.update_list_member_tags", config.MAILCHIMP_LIST_ID, h, t)
         response_update_list_member_tags = client.lists.update_list_member_tags(config.MAILCHIMP_LIST_ID, h, {'tags':t})
+        #TODO : si code HTTP retour = 429, attendre une seconde et recommencer
+        print(response_update_list_member_tags)
 
-
-        print(response)
-        tags = []
-        for t in response['tags']:
-            tags.append(t['name'])
         res = dict({'email_address' : response["email_address"], 'status' : response['status'], 'tags' : form['tags'], 'vip' : response['vip'], 'merge_fields' : response['merge_fields']})
         return jsonify(res)
-        #return jsonify(response)
-        #return jsonify(True)
+
     except ApiClientError as error:
         print("Error: {}".format(error.text))
         import json
@@ -257,6 +265,28 @@ def mailchimpAdd():
 def mailchimp():
     if is_session_valid()==False:
         return flask.redirect( url_for('login', redirect='/mailchimp'))
+    response = mailchimpLists()
+    return flask.render_template('tableau_mailchimp.html', 
+                                    list_id_api=response['id'],
+                                    list_id_web=response['web_id'], 
+                                    list_name=response['name'], 
+                                    loadUrlendpoint = "/mailchimpData",
+                                    titre = "Liste des contacts Mailchimp")
+
+@APP.route('/contact_ms_graph2mailchimp')
+def contact_ms_graph2mailchimp():
+    if is_session_valid()==False:
+        return flask.redirect( url_for('login', redirect='/mailchimp'))
+    response = mailchimpLists()
+    return flask.render_template('tableau_mailchimp.html',
+                                    list_id_api=response['id'],
+                                    list_id_web=response['web_id'],
+                                    list_name=response['name'],
+                                    loadUrlendpoint = "/contact_ms_graph2mailchimpData",
+                                    titre = "Ajout sur Mailchimp des contacts avec lesquels j'ai des intéractions par email")
+
+
+def mailchimpLists():
     try:
       client = MailchimpMarketing.Client()
       client.set_config({
@@ -264,18 +294,18 @@ def mailchimp():
         "server": config.MAILCHIMP_SERVER_PREFIX
       })
       #res_l = client.lists.get_all_lists()
+      #TODO : si code HTTP retour = 429, attendre une seconde et recommencer
       response = client.lists.get_list(config.MAILCHIMP_LIST_ID)
-      #return jsonify(response)
-      return flask.render_template('tableau_mailchimp.html', list_id_api=response['id'] ,list_id_web=response['web_id'], list_name=response['name'])
+      return response
     except ApiClientError as error:
       print("Error: {}".format(error.text))
-    return False
+      return False
 
 
 @APP.route('/mailchimpMembersTags')
 def mailchimpMembersTags():
     if is_session_valid()==False:
-        return flask.redirect( url_for('login', redirect='/contacts'))
+        return flask.redirect( url_for('login', redirect='/mailchimpMembersTags'))
     
     try:
         client = MailchimpMarketing.Client()
@@ -289,8 +319,10 @@ def mailchimpMembersTags():
         print("Error: {}".format(error.text))
     return jsonify(list(res.values()))
 
-@APP.route('/contacts')
-def contacts():
+
+"""
+@APP.route('/ms_graph_contact2csv')
+def ms_graph_contact2csv():
     if is_session_valid()==False:
         return flask.redirect( url_for('login', redirect='/contacts'))
     endpoint = 'me/people?$top=2500&select=displayName,scoredEmailAddresses'
@@ -322,7 +354,7 @@ def contacts():
         mimetype="text/csv",
         headers={"Content-disposition":
                  "attachment; mesContacts.csv"})
-
+"""
 
 
 @MSGRAPH.tokengetter
@@ -345,6 +377,5 @@ if __name__ == '__main__':
     #logging.basicConfig(filename='error.log',level=logging.DEBUG)
     #APP.run(host="0.0.0.0", port=80, debug=False)
     APP.run(host="0.0.0.0", port=443, debug=True, ssl_context=(config.CERTIF_FULLCHAIN_PATH, config.CERTIF_PRIVKEY_PATH))
-    #HTTPS_REDIRECTOR_APP.run(host="0.0.0.0", port=80, debug=True)
 
 

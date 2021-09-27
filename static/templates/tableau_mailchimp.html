@@ -30,7 +30,7 @@
 
 
 
-    <h2>Ajout sur Mailchimp des contacts avec lesquels j'ai des intéractions par email</h2>
+    <h2>{{titre}}</h2>
     Mailinglist :  <b>{{list_name}}</b> (ID via API : {{list_id_api}}  / ID via web : {{list_id_web}})
     <br><br>
     <div class="demo-container">
@@ -39,7 +39,7 @@
     </div>
 
     <script type="text/javascript">
-    	build_datagrid_widget();
+	    build_datagrid_widget("{{loadUrlendpoint}}");
     </script>
 <!--
 	<div class="container homepage-container">
