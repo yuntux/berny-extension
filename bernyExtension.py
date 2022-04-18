@@ -17,6 +17,13 @@ from mailchimp_marketing.api_client import ApiClientError
 import json
 import hashlib
 
+import os.path
+import datetime
+
+
+#date_jour = datetime.date.today().isoformat()
+FICHIER_MAPPING_DOMAINE_SOCIETES = "/tmp/mappingDomaineSocietes.json"
+
 
 APP = flask.Flask(__name__, template_folder='static/templates')
 APP.secret_key = config.APP_SECRET_KEY
@@ -150,7 +157,9 @@ def contact_ms_graph2mailchimpData():
             dn = contact['displayName']
         for mail in contact["scoredEmailAddresses"]:
             if config.DOMAIN_EXCLUSION not in mail["address"]:
-                res[mail["address"]] = {'displayName': contact['displayName'], 'email_address' : mail["address"], 'status' : 'new', 'tags':[], 'vip' : False, 'merge_fields' : {}}
+                merge_fields = {'SOCIETE':getMappingDomaineSocietes(mail["address"])}
+                print ("**********"+str(merge_fields))
+                res[mail["address"]] = {'displayName': contact['displayName'], 'email_address' : mail["address"], 'status' : 'new', 'tags':[], 'vip' : False, 'merge_fields' : merge_fields}
 
 
     ########## RECUPERER LES CONTACTS MAILCHIMP
@@ -161,7 +170,7 @@ def contact_ms_graph2mailchimpData():
       mail = member['email_address']
       if (mail in res.keys()):
           #res[mail] = member
-          del res[mail]
+          del res[mail] #ne retourner que les contacts Outlook qui ne sont pas encore dans mailchimp
       else :
           pass
     return jsonify(list(res.values()))
@@ -200,7 +209,7 @@ def mailchimpListMembers():
 
 
 @APP.route('/mailchimpAddUpdate', methods=['POST','PUT'])
-def mailchimpAdd():
+def mailchimpAddUpdate():
     if is_session_valid()==False:
         return flask.redirect( url_for('login', redirect='/mailchimp'))
 
@@ -250,6 +259,7 @@ def mailchimpAdd():
         #TODO : si code HTTP retour = 429, attendre une seconde et recommencer
         print(response_update_list_member_tags)
 
+        incrementMappingDomaineSocietes(response["email_address"], response['merge_fields']['SOCIETE'], response['last_changed'])
         res = dict({'email_address' : response["email_address"], 'status' : response['status'], 'tags' : form['tags'], 'vip' : response['vip'], 'merge_fields' : response['merge_fields']})
         return jsonify(res)
 
@@ -271,7 +281,67 @@ def mailchimp():
                                     list_id_web=response['web_id'], 
                                     list_name=response['name'], 
                                     loadUrlendpoint = "/mailchimpData",
-                                    titre = "Liste des contacts Mailchimp")
+                                    titre = "Liste des contacts Mailchimp",
+                                    message = "")
+
+
+def getMappingDomaineSocietes(address):
+    domain = address.split("@")[1]
+    if not os.path.exists(FICHIER_MAPPING_DOMAINE_SOCIETES):
+        mapping = {}
+        members = mailchimpListMembers()
+        for member in members :
+            domain = member['email_address'].split("@")[1]
+            societe = member['merge_fields']['SOCIETE']
+            if (len(societe) == 0):
+                continue
+            if domain not in mapping.keys():
+                mapping[domain] = {}
+            if societe not in mapping[domain].keys():
+                d = {'societe' : societe, 'member_last_change' : member['last_changed']}
+                mapping[domain][societe] = d 
+            else :
+                if (mapping[domain][societe]['member_last_change'] < member['last_changed']):
+                    mapping[domain][societe]['member_last_change'] = member['last_changed']
+
+        with open(FICHIER_MAPPING_DOMAINE_SOCIETES, 'w') as f:
+            json.dump(mapping, f, indent=4)
+
+    else :
+        with open(FICHIER_MAPPING_DOMAINE_SOCIETES, 'r') as j:
+            mapping = json.loads(j.read())
+
+    
+    if domain in mapping.keys():
+        mapping_domain = mapping[domain]
+        mapping_ordered = list(dict(sorted(mapping_domain.items(), key=lambda item: item[1]['member_last_change'], reverse=True)).keys())
+        #mapping_ordered = list(mapping_domain.keys())
+        return mapping_ordered[0]
+    else : 
+        return ""
+
+
+def incrementMappingDomaineSocietes(address, societe, last_changed):
+    if not os.path.exists(FICHIER_MAPPING_DOMAINE_SOCIETES):
+        return False
+    if (len(societe) == 0):
+        return False
+    domain = address.split("@")[1]
+    with open(FICHIER_MAPPING_DOMAINE_SOCIETES, 'r') as j:
+        mapping = json.loads(j.read())
+    if domain not in mapping.keys():
+        mapping[domain] = {}
+    if societe not in mapping[domain].keys():
+        d = {'societe' : societe, 'member_last_change' : last_changed}
+        mapping[domain][societe] = d
+    else :
+        if (mapping[domain][societe]['member_last_change'] < last_changed):
+            mapping[domain][societe]['member_last_change'] = last_changed
+
+    with open(FICHIER_MAPPING_DOMAINE_SOCIETES, 'w') as f:
+        json.dump(mapping, f, indent=4)
+
+    
 
 @APP.route('/contact_ms_graph2mailchimp')
 def contact_ms_graph2mailchimp():
@@ -283,7 +353,8 @@ def contact_ms_graph2mailchimp():
                                     list_id_web=response['web_id'],
                                     list_name=response['name'],
                                     loadUrlendpoint = "/contact_ms_graph2mailchimpData",
-                                    titre = "Ajout sur Mailchimp des contacts avec lesquels j'ai des intéractions par email")
+                                    titre = "Ajout sur Mailchimp des contacts avec lesquels j'ai des intéractions par email",
+                                    message = "Cet écran affiche tous les contacts avec lesquels vous avez des interaction par email, et qui ne sont pas encore sur Mailchimp.\nPour éditer un contact qui est déjà sur Mailchimp, cliquez sur le menu Mailchimp dans le menu.")
 
 
 def mailchimpLists():

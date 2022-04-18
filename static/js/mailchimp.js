@@ -39,6 +39,8 @@ function build_datagrid_widget(loadUrlendpoint) {
         }),
 	editing: {
             mode: "popup",
+            allowAdding: true,
+	    allowDeleting: false,
 	    allowUpdating: function (e){
 		if (e.row.data['status'] == "new")
 		    return false;
@@ -174,12 +176,24 @@ function build_datagrid_widget(loadUrlendpoint) {
                     valueExpr: "code"
                 }
             },{
+                caption: "Mail",
+                dataField:"email_address", 
+            },{
                 caption: "displayName",
 		allowEditing: false,
                 dataField:"displayName", 
             },{
-                caption: "Mail",
-                dataField:"email_address", 
+                caption: "Prénom",
+                dataField:"merge_fields.FNAME", 
+            },{
+                caption: "Nom",
+                dataField:"merge_fields.LNAME", 
+            },{
+                caption: "Société",
+                dataField:"merge_fields.SOCIETE", 
+            },{
+                caption: "Rôle",
+                dataField:"merge_fields.ROLE", 
             },{
                 caption: "Tags",
                 dataField:"tags", 
@@ -203,13 +217,7 @@ function build_datagrid_widget(loadUrlendpoint) {
 
 			$cell.append($tagBox);
 		},
-            },{
-                caption: "Prénom",
-                dataField:"merge_fields.FNAME", 
-            },{
-                caption: "Nom",
-                dataField:"merge_fields.LNAME", 
-            },{
+            },/*{
                 caption: "Téléphone",
                 dataField:"merge_fields.PHONE", 
             },{
@@ -238,7 +246,7 @@ function build_datagrid_widget(loadUrlendpoint) {
             },{
                 caption: "Région",
                 dataField:"merge_fields.ADDRESS.state", 
-            },
+            },*/
        ],
     //}).dxDataGrid('instance');
     });

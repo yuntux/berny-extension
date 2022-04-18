@@ -15,9 +15,9 @@ nav .nav-wrapper {
     height: 100%;
 }
 .container {
-    width: 70%;
+    width: 100%;
     margin: 0 auto;
-    max-width: 1280px;
+    /*max-width: 1280px;*/
 }
 
 nav .brand-logo {
@@ -43,7 +43,7 @@ a, a:hover {
     float: right !important;
 }
 nav ul {
-    margin: 0;
+    margin-right: 5px;
 }
 ul {
     padding: 0;
