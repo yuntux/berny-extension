@@ -22,7 +22,7 @@ import datetime
 
 
 #date_jour = datetime.date.today().isoformat()
-FICHIER_MAPPING_DOMAINE_SOCIETES = "/tmp/mappingDomaineSocietes.json"
+FICHIER_MAPPING_DOMAINE_SOCIETES = "/tmp/mappingDomaineSocietes_"+config.MAILCHIMP_LIST_ID+".json"
 
 
 APP = flask.Flask(__name__, template_folder='static/templates')
@@ -120,7 +120,7 @@ def mailchimpData():
 @APP.route('/contact_ms_graph2mailchimpData')
 def contact_ms_graph2mailchimpData():
     if is_session_valid()==False:
-        return flask.redirect( url_for('login', redirect='/mailchimpData'))
+        return flask.redirect( url_for('login', redirect='/contact_ms_graph2mailchimpData'))
     
     ########## RECUPERER LES CONTACTS MS GRAPH
     contacts = []
@@ -201,6 +201,7 @@ def mailchimpListMembers():
               tags.append(t['name'])
           member["tags"] = tags
           member['displayName'] = member['merge_fields']['FNAME'] + " " + member['merge_fields']['LNAME'] 
+          del member['_links']
       return members
       
     except ApiClientError as error:
@@ -211,7 +212,7 @@ def mailchimpListMembers():
 @APP.route('/mailchimpAddUpdate', methods=['POST','PUT'])
 def mailchimpAddUpdate():
     if is_session_valid()==False:
-        return flask.redirect( url_for('login', redirect='/mailchimp'))
+        return flask.redirect( url_for('login', redirect='/mailchimpAddUpdate'))
 
     import json
     form = json.loads(request.form.getlist('values')[0])
@@ -346,7 +347,7 @@ def incrementMappingDomaineSocietes(address, societe, last_changed):
 @APP.route('/contact_ms_graph2mailchimp')
 def contact_ms_graph2mailchimp():
     if is_session_valid()==False:
-        return flask.redirect( url_for('login', redirect='/mailchimp'))
+        return flask.redirect(url_for('login', redirect='/contact_ms_graph2mailchimp'))
     response = mailchimpLists()
     return flask.render_template('tableau_mailchimp.html',
                                     list_id_api=response['id'],
