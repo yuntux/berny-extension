@@ -1,5 +1,6 @@
 import uuid
 import time
+import datetime
 
 import flask
 from flask import Response
@@ -18,11 +19,11 @@ import json
 import hashlib
 
 import os.path
-import datetime
 
 
 #date_jour = datetime.date.today().isoformat()
 FICHIER_MAPPING_DOMAINE_SOCIETES = "/tmp/mappingDomaineSocietes_"+config.MAILCHIMP_LIST_ID+".json"
+FICHIER_CACHE_MEMBRES_MAILCHIMP = "/tmp/cacheMembresMailchimp_"+config.MAILCHIMP_LIST_ID+".json"
 
 
 APP = flask.Flask(__name__, template_folder='static/templates')
@@ -176,38 +177,66 @@ def contact_ms_graph2mailchimpData():
     return jsonify(list(res.values()))
 
 def mailchimpListMembers():
-    try:
-      client = MailchimpMarketing.Client()
-      client.set_config({
-        "api_key": config.MAILCHIMP_API_KEY,
-        "server": config.MAILCHIMP_SERVER_PREFIX
-      })
+    def appelsApiMembres(last_change=None):
+        try:
+          client = MailchimpMarketing.Client()
+          client.set_config({
+            "api_key": config.MAILCHIMP_API_KEY,
+            "server": config.MAILCHIMP_SERVER_PREFIX
+          })  
+          
+          members = []
+          offset = 0
+          #response = client.lists.get_list_members_info(config.MAILCHIMP_LIST_ID, offset=offset, count=config.MAILCHIMP_PAGE_SIZE)
+          #members.extend(response['members'])
+          while (True) :
+            if (last_change == None):
+                response = client.lists.get_list_members_info(config.MAILCHIMP_LIST_ID, offset=offset, count=config.MAILCHIMP_PAGE_SIZE)
+            else :
+                response = client.lists.get_list_members_info(config.MAILCHIMP_LIST_ID, offset=offset, count=config.MAILCHIMP_PAGE_SIZE, since_last_changed=last_change)
+            #TODO : si code HTTP retour = 429, attendre une seconde et recommencer
+            members.extend(response['members'])
+            if (len(response['members']) < config.MAILCHIMP_PAGE_SIZE):
+                break
+            offset = offset + config.MAILCHIMP_PAGE_SIZE 
 
-      members = []
-      offset = 0
-      #response = client.lists.get_list_members_info(config.MAILCHIMP_LIST_ID, offset=offset, count=config.MAILCHIMP_PAGE_SIZE)
-      #members.extend(response['members'])
-      while (True) :
-        response = client.lists.get_list_members_info(config.MAILCHIMP_LIST_ID, offset=offset, count=config.MAILCHIMP_PAGE_SIZE)
-        #TODO : si code HTTP retour = 429, attendre une seconde et recommencer
-        members.extend(response['members'])
-        if (len(response['members']) < config.MAILCHIMP_PAGE_SIZE):
-            break
-        offset = offset + config.MAILCHIMP_PAGE_SIZE 
+          for member in members:
+              tags = []
+              for t in member['tags']:
+                  tags.append(t['name'])
+              member["tags"] = tags
+              member['displayName'] = member['merge_fields']['FNAME'] + " " + member['merge_fields']['LNAME'] 
+              del member['_links']
+          return members
+          
+        except ApiClientError as error:
+          print("Error: {}".format(error.text))
+          return False
 
-      for member in members:
-          tags = []
-          for t in member['tags']:
-              tags.append(t['name'])
-          member["tags"] = tags
-          member['displayName'] = member['merge_fields']['FNAME'] + " " + member['merge_fields']['LNAME'] 
-          del member['_links']
-      return members
-      
-    except ApiClientError as error:
-      print("Error: {}".format(error.text))
-      return False
 
+    d = datetime.datetime.now() + datetime.timedelta(hours=-1)
+    d_format = d.isoformat()
+    if not os.path.exists(FICHIER_CACHE_MEMBRES_MAILCHIMP):
+        data = {'last_changed' : d_format}
+        data['members'] = appelsApiMembres()
+        with open(FICHIER_CACHE_MEMBRES_MAILCHIMP, 'w') as f:
+            json.dump(data, f, indent=4)
+
+    else :
+        with open(FICHIER_CACHE_MEMBRES_MAILCHIMP, 'r') as j:
+            data = json.loads(j.read())
+        data['last_changed'] = d_format
+        changed_members = appelsApiMembres(data["last_changed"])
+        print('Nombre de membres ayant changé depuis '+data['last_changed']+" : "+str(len(changed_members)))
+        print(str(changed_members))
+        for changed_member in changed_members :
+            for i in range(len(data['members'])):
+                if changed_member['email_address'] == data['members'][i]['email_address']:
+                    data['members'][i] = changed_member
+        with open(FICHIER_CACHE_MEMBRES_MAILCHIMP, 'w') as f:
+            json.dump(data, f, indent=4)
+
+    return data['members']
 
 @APP.route('/mailchimpAddUpdate', methods=['POST','PUT'])
 def mailchimpAddUpdate():
