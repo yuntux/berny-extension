@@ -61,7 +61,7 @@ def login():
     #TOOD : il serait plus propre de passer la cibel de redirection dans une path du redirect URI encodé en HTML path
     return MSGRAPH.authorize(callback=config.REDIRECT_URI, state=flask.session['state'])
 
-@APP.route(config.REDIRECT_URI)
+@APP.route(config.REDIRECT_PATH)
 def authorized():
     """Handler for the application's Redirect Uri."""
     if str(flask.session['state']) != str(flask.request.args['state']):
@@ -157,7 +157,6 @@ def contact_ms_graph2mailchimpData():
         for mail in contact["scoredEmailAddresses"]:
             if config.DOMAIN_EXCLUSION not in mail["address"]:
                 merge_fields = {'SOCIETE':getMappingDomaineSocietes(mail["address"])}
-                print ("**********"+str(merge_fields))
                 res[mail["address"]] = {'displayName': contact['displayName'], 'email_address' : mail["address"], 'status' : 'new', 'tags':[], 'vip' : False, 'merge_fields' : merge_fields}
 
 
