@@ -61,7 +61,7 @@ def login():
     #TOOD : il serait plus propre de passer la cibel de redirection dans une path du redirect URI encodé en HTML path
     return MSGRAPH.authorize(callback=config.REDIRECT_URI, state=flask.session['state'])
 
-@APP.route('/login/authorized')
+@APP.route(config.REDIRECT_URI)
 def authorized():
     """Handler for the application's Redirect Uri."""
     if str(flask.session['state']) != str(flask.request.args['state']):
@@ -82,7 +82,8 @@ def authorized():
         if group['id'] == config.ID_AUTHORIZED_GROUP:
             insideAuthorizedGroup = True
     if insideAuthorizedGroup == False:
-        return "Vous n'apparatenez pas au groupe authorisé à accéder à cette fonction"
+        flask.session={}
+        return "ERREUR : Vous n'apparatenez pas au groupe authorisé à accéder à cette fonction"
 
     endpoint = 'me'
     headers = {'SdkVersion': 'sample-python-flask',
@@ -90,9 +91,6 @@ def authorized():
                'client-request-id': str(uuid.uuid4()),
                'return-client-request-id': 'true'}
     graphdata = MSGRAPH.get(endpoint, headers=headers).data
-    if (config.DOMAIN_EXCLUSION not in graphdata['mail']):
-        flask.session={}
-        return "ERREUR : votre email n'appartient pas au domaine authorisé à utiliser cette application."
     
     flask.session['displayName'] = graphdata['displayName']
     flask.session['mail'] = graphdata['mail']

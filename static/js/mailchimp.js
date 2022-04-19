@@ -217,6 +217,51 @@ function build_datagrid_widget(loadUrlendpoint) {
 
 			$cell.append($tagBox);
 		},
+		    /*
+    cellTemplate: function (container, options) {  
+        var html = "";  
+        for (var i = 0; i < options.value.length; i++) {  
+            html += (html != "" ? ", " : "") + options.value[i];  
+        }  
+        container.html(html);  
+    }, 
+    calculateFilterExpression: function (filterValue, selectedFilterOperation) {  
+        if (!filterValue) return;  
+        var filterValues = filterValue.split(",");  
+        return function (data) {  
+            var arr = $.grep(data.categories, function (item, index) {  
+                return ($.inArray(item.toString(), filterValues) >= 0 ? true : false);  
+            })  
+            return arr.length > 0;  
+        }  
+    },  */
+	/*
+	      calculateDisplayValue: function(rowData) {
+		var filterExpression = [],
+		values = rowData.tags;
+		for (var i = 0; i < values.length; i++) {
+		  if (i > 0) {
+		    filterExpression.push('or');
+		  }
+		  filterExpression.push(['name', values[i]]);
+		}
+		var result = $.map(DevExpress.data.query(mailchimpMemberTags).filter(filterExpression).toArray(), function(item) {
+		  return item.name;
+		}).join(',');
+		return result;
+	      },
+	      calculateFilterExpression: function(filterValues, selectedFilterOperation) {
+		var filterExpression = [];
+		for (var i = 0; i < filterValues.length; i++) {
+		  var filterExpr = [this.dataField, selectedFilterOperation || '=', filterValues[i]];
+		  if (i > 0) {
+		    filterExpression.push('or');
+		  }
+		  filterExpression.push(filterExpr);
+		}
+		return filterExpression;
+	      },
+	*/
             },/*{
                 caption: "Téléphone",
                 dataField:"merge_fields.PHONE", 
@@ -248,7 +293,25 @@ function build_datagrid_widget(loadUrlendpoint) {
                 dataField:"merge_fields.ADDRESS.state", 
             },*/
        ],
-    //}).dxDataGrid('instance');
+	    /*
+	    onEditorPreparing: function(e) {
+	      if ((e.parentType === "dataRow" || e.parentType === "filterRow") && e.dataField === "tags") {
+		e.editorName = "dxTagBox"
+		e.editorOptions.dataSource = mailchimpMemberTags;
+		e.editorOptions.showSelectionControls = true;
+		e.editorOptions.displayExpr = "name";
+		e.editorOptions.valueExpr = "name";
+		e.editorOptions.value = e.value || [];
+		e.editorOptions.tagTemplate = function (value, container) {
+            	  container.text(value.name);
+        	}
+		e.editorOptions.onValueChanged = function(args) {
+		  //e.setValue(args.value);
+		  e.setValue(args.values.join(","));
+		}
+	      }
+	    },
+	    */
     });
 
 /*
