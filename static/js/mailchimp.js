@@ -3,7 +3,7 @@
 //////////////////////////////////////////////////////
 
 DevExpress.localization.locale(navigator.language);
-function build_datagrid_widget(loadUrlendpoint) {
+function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
 
     var url = window.location.protocol + "//" + window.location.hostname;
 
@@ -179,9 +179,10 @@ function build_datagrid_widget(loadUrlendpoint) {
                 caption: "Mail",
                 dataField:"email_address", 
             },{
-                caption: "displayName",
+                caption: "displayName (Outlook)",
 		allowEditing: false,
                 dataField:"displayName", 
+		visible:showDiplayNameColumn, 
             },{
                 caption: "Prénom",
                 dataField:"merge_fields.FNAME", 

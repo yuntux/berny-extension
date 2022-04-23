@@ -41,7 +41,12 @@
     </div>
 
     <script type="text/javascript">
-	    build_datagrid_widget("{{loadUrlendpoint}}");
+	    {% if showDiplayNameColumn == True %}
+		showDiplayNameColumn_js = true
+	    {% else %}
+		showDiplayNameColumn_js = false
+	    {% endif %}
+	    build_datagrid_widget("{{loadUrlendpoint}}", showDiplayNameColumn_js);
     </script>
 <!--
 	<div class="container homepage-container">

@@ -156,7 +156,16 @@ def contact_ms_graph2mailchimpData():
             dn = contact['displayName']
         for mail in contact["scoredEmailAddresses"]:
             if config.DOMAIN_EXCLUSION not in mail["address"]:
-                merge_fields = {'SOCIETE':getMappingDomaineSocietes(mail["address"])}
+                computed_fname = ""
+                computed_lname = ""
+                try:
+                    l = mail["address"].split("@")[0].split('.')
+                    computed_fname = l[0].capitalize()
+                    if (len(l) > 1):
+                        computed_lname = '.'.join(l[1:]).upper()
+                finally:
+                    print("Erreur d'extraction du prénom et du nom pour cette adresse email : "+mail["address"])
+                merge_fields = {'FNAME' : computed_fname, 'LNAME' : computed_lname, 'SOCIETE':getMappingDomaineSocietes(mail["address"])}
                 res[mail["address"]] = {'displayName': contact['displayName'], 'email_address' : mail["address"], 'status' : 'new', 'tags':[], 'vip' : False, 'merge_fields' : merge_fields}
 
 
@@ -201,7 +210,7 @@ def mailchimpListMembers():
               tags = []
               for t in member['tags']:
                   tags.append(t['name'])
-              member["tags"] = tags
+              member["tags"] = sorted(tags)
               member['displayName'] = member['merge_fields']['FNAME'] + " " + member['merge_fields']['LNAME'] 
               del member['_links']
           return members
@@ -227,9 +236,21 @@ def mailchimpListMembers():
         print('Nombre de membres ayant changé depuis '+data['last_changed']+" : "+str(len(changed_members)))
         print(str(changed_members))
         for changed_member in changed_members :
+            maj = False
             for i in range(len(data['members'])):
                 if changed_member['email_address'] == data['members'][i]['email_address']:
+                    #Mise à jour des membres déjà existants dans le cache
                     data['members'][i] = changed_member
+                    maj = True
+            if maj == False:
+                #Ajout des nouveaux membres
+                data['members'].append(changed_member)
+
+        #TODO : la suppression définive de fiches sur Mailchimp ne remontent pas par API et restent dans le cache.
+            #il faut supprimer le cache (ou redémarrer la VM puisque le cache est dans /tmp pour qu'il se rafraichisse
+            #la bonne pratique est de ne jamais supprimer une fiche définitivement mais d'archiver le contact... mais l'API ne les retourne plus après archivage
+            #on peut aussi simplement le passer au statut unsubscribed sur l'IHM Mailchimp... mais dans ce cas il continue à nous être facturé
+
         with open(FICHIER_CACHE_MEMBRES_MAILCHIMP, 'w') as f:
             json.dump(data, f, indent=4)
 
@@ -240,7 +261,6 @@ def mailchimpAddUpdate():
     if is_session_valid()==False:
         return flask.redirect( url_for('login', redirect='/mailchimpAddUpdate'))
 
-    import json
     form = json.loads(request.form.getlist('values')[0])
     print(form)
     if 'email_address' in form.keys() :
@@ -260,11 +280,15 @@ def mailchimpAddUpdate():
 
         # CREATION ou MISE A JOUR DU MEMBRE
         d = dict({"email_address": email_address})
-        d["status"] = form['status'] #"subscribed", "unsubscribed", "cleaned", "pending", or "transactional".
-        if d['status'] in ["new", ""]:
+        # Liste des statuts que peut prendre un contact mailchimp : https://mailchimp.com/fr/help/about-your-contacts/
+        if ('status' not in form.keys()) or (form['status'] in ["new", ""]):
             d['status'] = "subscribed"
-        d["vip"] = form["vip"]
-        d['merge_fields'] = form['merge_fields']
+        else :
+            d['status'] = form['status']
+        if ('vip' in form.keys()):
+            d["vip"] = form["vip"]
+        if ('merge_fields' in form.keys()):
+            d['merge_fields'] = form['merge_fields']
         print(d)
         print(flask.session['mail'] + " ===> client.lists.set_list_member", config.MAILCHIMP_LIST_ID, h, d)
         response = client.lists.set_list_member(config.MAILCHIMP_LIST_ID, h, d)
@@ -274,6 +298,8 @@ def mailchimpAddUpdate():
 
         #MISE A JOUR DES TAGS
         t = []
+        if ('tags' not in form.keys()):
+            form['tags'] = []
         response_tags = client.lists.tag_search(config.MAILCHIMP_LIST_ID)
         for tag in response_tags['tags']:
             if tag['name'] in form['tags']:
@@ -287,12 +313,11 @@ def mailchimpAddUpdate():
         print(response_update_list_member_tags)
 
         incrementMappingDomaineSocietes(response["email_address"], response['merge_fields']['SOCIETE'], response['last_changed'])
-        res = dict({'email_address' : response["email_address"], 'status' : response['status'], 'tags' : form['tags'], 'vip' : response['vip'], 'merge_fields' : response['merge_fields']})
+        res = dict({'email_address' : response["email_address"], 'status' : response['status'], 'tags' : sorted(form['tags']), 'vip' : response['vip'], 'merge_fields' : response['merge_fields']})
         return jsonify(res)
 
     except ApiClientError as error:
         print("Error: {}".format(error.text))
-        import json
         error_dic = json.loads(error.text)
         return jsonify(error.text), error_dic["status"]
     return Response(jsonify("Erreur"), 500)
@@ -309,6 +334,7 @@ def mailchimp():
                                     list_name=response['name'], 
                                     loadUrlendpoint = "/mailchimpData",
                                     titre = "Liste des contacts Mailchimp",
+                                    showDiplayNameColumn = False,
                                     message = "")
 
 
@@ -381,6 +407,7 @@ def contact_ms_graph2mailchimp():
                                     list_name=response['name'],
                                     loadUrlendpoint = "/contact_ms_graph2mailchimpData",
                                     titre = "Ajout sur Mailchimp des contacts avec lesquels j'ai des intéractions par email",
+                                    showDiplayNameColumn = True,
                                     message = "Cet écran affiche tous les contacts avec lesquels vous avez des interaction par email, et qui ne sont pas encore sur Mailchimp.\nPour éditer un contact qui est déjà sur Mailchimp, cliquez sur le menu Mailchimp dans le menu.")
 
 
