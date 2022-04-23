@@ -38,20 +38,23 @@ MSGRAPH = OAUTH.remote_app(
     authorize_url=config.AUTHORITY_URL + config.AUTH_ENDPOINT)
 
 
-def is_session_valid():
-    if ('access_token' not in flask.session.keys()) or (not flask.session['access_token']) or (time.time() >= flask.session['token_expires_at']):
-        flask.session={}
-        return False
-    return True
-
 @APP.route('/')
 def homepage():
     """Render the home page."""
     return flask.render_template('homepage.html', sample='Flask-OAuthlib')
 
+
 @APP.route('/about')
 def about():
     return flask.render_template('about.html')
+
+
+def is_session_valid():
+    if ('access_token' not in flask.session.keys()) or (not flask.session['access_token']) or (time.time() >= flask.session['token_expires_at']):
+        #print("invalidation de la session courante", time.time() >= flask.session['token_expires_at'], time.ctime(time.time()), time.ctime(flask.session['token_expires_at']))
+        flask.session={}
+        return False
+    return True
 
 @APP.route('/login')
 def login():
@@ -67,8 +70,11 @@ def authorized():
     if str(flask.session['state']) != str(flask.request.args['state']):
         raise Exception('state returned to redirect URL does not match!')
     response = MSGRAPH.authorized_response()
+    print("MSGRAPH auth response : ", response)
     flask.session['access_token'] = response['access_token']
-    flask.session['token_expires_at'] = time.time() + int(response['expires_in'])
+    expire_date =  time.time() + int(response['expires_in'])
+    flask.session['token_expires_at'] = expire_date
+    #print ("SESSSION EXPIRES", flask.session['token_expires_at'], time.ctime(flask.session['token_expires_at']), int(response['expires_in']))
 
 
     endpoint = 'me/memberOf'
