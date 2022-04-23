@@ -8,6 +8,7 @@ from flask import request, redirect
 from flask import url_for
 from flask_oauthlib.client import OAuth
 from flask_session import Session
+#TODO : pour une meilleure sécurité, passer à une session côté server
 from flask import jsonify
 
 import config

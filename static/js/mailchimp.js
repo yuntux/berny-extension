@@ -45,6 +45,7 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
 	    },
 	    refreshMode:"reshape",
         },
+	/*
 	onRowUpdating: function (options) {  
 		//Mailchimp a besoin de tous les champs d'une adresse pour l'enregistrer : il est donc nécessaire de toujours retourner toutes les valeurs, et pas que celles qui ont été modifiées.
 		// https://supportcenter.devexpress.com/ticket/details/t216562/dxdatagrid-it-is-impossible-to-pass-all-item-options-to-the-customstore-update-method
@@ -53,7 +54,7 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
 		console.log(options.oldData.tags);
 		console.log("========= newData");
 		console.log(options.newData.tags);
-		console.log(options.newData); // le soucis viens probablement que options.newData.tags ne vaut pas la même chose que lorsque l'on inspecte/deplie l'objet newdata
+		console.log(options.newData);
 		console.log(options.newData.tags);
 
 
@@ -71,7 +72,8 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
 		console.log("========= AFTER newData");
 		console.log(options.newData);
 		console.log(options.newData.tags);
-	},  	
+	},
+	*/  	
 	repaintChangesOnly: true,
         columnAutoWidth: true,
         allowColumnReordering: true,
@@ -84,9 +86,12 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
             width: 240,
             placeholder: "Rechercher..."
         },
-        filterPanel: { visible: true },
+        filterPanel: {
+		visible: true
+	},
         headerFilter: {
-            visible: true
+            visible: true,
+	    allowSearch: true
         },
         filterBuilderPopup: {
             position: { of: window, at: "top", my: "top", offset: { y: 10 } },
@@ -175,17 +180,21 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
             },{
                 caption: "Mail",
                 dataField:"email_address", 
+		allowHeaderFiltering: false,
 	    },{
                 caption: "displayName (Outlook)",
                 dataField:"displayName", 
 		visible:showDiplayNameColumn, 
 		allowEditing: false,
+		allowHeaderFiltering: false,
             },{
                 caption: "Prénom",
                 dataField:"merge_fields.FNAME", 
+		allowHeaderFiltering: false,
             },{
                 caption: "Nom",
                 dataField:"merge_fields.LNAME", 
+		allowHeaderFiltering: false,
             },{
                 caption: "Société",
                 dataField:"merge_fields.SOCIETE", 
@@ -195,6 +204,7 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
             },{
                 caption: "Tags",
                 dataField:"tags", 
+		allowHeaderFiltering: false, /* le headerFilter ne fonctionne pas pour les dxTagBox*/
 		editCellTemplate: function($cell, cellData) {
 			var $tagBox = $("<div>").dxTagBox({
 				dataSource: new DevExpress.data.ArrayStore({
@@ -215,101 +225,8 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
 
 			$cell.append($tagBox);
 		},
-		    /*
-    cellTemplate: function (container, options) {  
-        var html = "";  
-        for (var i = 0; i < options.value.length; i++) {  
-            html += (html != "" ? ", " : "") + options.value[i];  
-        }  
-        container.html(html);  
-    }, 
-    calculateFilterExpression: function (filterValue, selectedFilterOperation) {  
-        if (!filterValue) return;  
-        var filterValues = filterValue.split(",");  
-        return function (data) {  
-            var arr = $.grep(data.categories, function (item, index) {  
-                return ($.inArray(item.toString(), filterValues) >= 0 ? true : false);  
-            })  
-            return arr.length > 0;  
-        }  
-    },  */
-	/*
-	      calculateDisplayValue: function(rowData) {
-		var filterExpression = [],
-		values = rowData.tags;
-		for (var i = 0; i < values.length; i++) {
-		  if (i > 0) {
-		    filterExpression.push('or');
-		  }
-		  filterExpression.push(['name', values[i]]);
-		}
-		var result = $.map(DevExpress.data.query(mailchimpMemberTags).filter(filterExpression).toArray(), function(item) {
-		  return item.name;
-		}).join(',');
-		return result;
-	      },
-	      calculateFilterExpression: function(filterValues, selectedFilterOperation) {
-		var filterExpression = [];
-		for (var i = 0; i < filterValues.length; i++) {
-		  var filterExpr = [this.dataField, selectedFilterOperation || '=', filterValues[i]];
-		  if (i > 0) {
-		    filterExpression.push('or');
-		  }
-		  filterExpression.push(filterExpr);
-		}
-		return filterExpression;
-	      },
-	*/
-            },/*{
-                caption: "Téléphone",
-                dataField:"merge_fields.PHONE", 
-            },{
-                caption: "VIP",
-                dataField:"vip", 
-            },{
-                caption: "Adresse L1",
-                dataField:"merge_fields.ADDRESS.addr1", 
-            },{
-                caption: "Adresse L2",
-                dataField:"merge_fields.ADDRESS.addr2", 
-            },{
-                caption: "Code postal",
-                dataField:"merge_fields.ADDRESS.zip", 
-            },{
-                caption: "Ville",
-                dataField:"merge_fields.ADDRESS.city", 
-            },{
-                caption: "Pays",
-                dataField:"merge_fields.ADDRESS.country", 
-		lookup: {
-                    dataSource: countries,
-                    displayExpr: "name",
-                    valueExpr: "code"
-                }
-            },{
-                caption: "Région",
-                dataField:"merge_fields.ADDRESS.state", 
-            },*/
+            },
        ],
-	    /*
-	    onEditorPreparing: function(e) {
-	      if ((e.parentType === "dataRow" || e.parentType === "filterRow") && e.dataField === "tags") {
-		e.editorName = "dxTagBox"
-		e.editorOptions.dataSource = mailchimpMemberTags;
-		e.editorOptions.showSelectionControls = true;
-		e.editorOptions.displayExpr = "name";
-		e.editorOptions.valueExpr = "name";
-		e.editorOptions.value = e.value || [];
-		e.editorOptions.tagTemplate = function (value, container) {
-            	  container.text(value.name);
-        	}
-		e.editorOptions.onValueChanged = function(args) {
-		  //e.setValue(args.value);
-		  e.setValue(args.values.join(","));
-		}
-	      }
-	    },
-	    */
     });
 
 };
