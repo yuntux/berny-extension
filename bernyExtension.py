@@ -160,7 +160,7 @@ def contact_ms_graph2mailchimpData():
             computed_lname = ""
             try:
                 l = mail["address"].split("@")[0].split('.')
-                computed_fname = l[0].capitalize()
+                computed_fname = l[0].title()
                 if (len(l) > 1):
                     computed_lname = '.'.join(l[1:]).upper()
             finally:
