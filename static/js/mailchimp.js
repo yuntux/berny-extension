@@ -32,10 +32,7 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
             loadUrl: url +  loadUrlendpoint,
 	    insertUrl: url + "/mailchimpAddUpdate",
             updateUrl: url + "/mailchimpAddUpdate",
-            /*deleteUrl: url + "/DeleteOrder",
-            onBeforeSend: function(method, ajaxOptions) {
-                ajaxOptions.xhrFields = { withCredentials: true };
-            }*/
+            /*deleteUrl: url + "/DeleteOrder",*/
         }),
 	editing: {
             mode: "popup",
@@ -108,16 +105,12 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
         loadPanel: {
             enabled: true
         },
-        scrolling: { mode: "infinite" },
-        /*
-        masterDetail: {
-            enabled: true,
-            template: masterDetailTemplate
-        },
-        */
+        scrolling: {
+		mode: "infinite"
+	},
         export: {
           enabled: true,
-          allowExportSelectedData: true
+          allowExportSelectedData: false
         },
         
         onExporting: function(e) {
@@ -131,17 +124,21 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
           }).then(function() {
             // https://github.com/exceljs@1.7.0/exceljs#writing-xlsx
             workbook.xlsx.writeBuffer().then(function(buffer) {
-              saveAs(new Blob([buffer], { type: 'application/octet-stream' }), 'Employees.xlsx');
+              saveAs(new Blob([buffer], { type: 'application/octet-stream' }), 'Contacts.xlsx');
             });
           });
           e.cancel = true;
         },
-
-        /*
-        onEditorPreparing(e) {  
-          if (e.dataField === "mentee")  
-            e.editorName = "dxTextArea";  
-        },*/
+	onEditorPreparing: function(e) {
+            if (e.dataField === "email_address" && e.parentType === "dataRow") {
+	 	// L'adresse email est la clé... donc on ne doit pas pouvoir la changer. Sinon mailchimp crée un nouveau contact mais il n'est pas créé sur le front JS... qui pense qu'il est en train d'éditer  
+		if (e.row.data && e.row.data.email_address){
+                	e.editorOptions.disabled = true;
+		} else {
+                	e.editorOptions.disabled = false;
+		}
+            }
+        },
 
         columns: [
 	  {
@@ -178,11 +175,11 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
             },{
                 caption: "Mail",
                 dataField:"email_address", 
-            },{
+	    },{
                 caption: "displayName (Outlook)",
-		allowEditing: false,
                 dataField:"displayName", 
 		visible:showDiplayNameColumn, 
+		allowEditing: false,
             },{
                 caption: "Prénom",
                 dataField:"merge_fields.FNAME", 
@@ -315,21 +312,6 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
 	    */
     });
 
-/*
-    $('#exportButton').dxButton({
-        icon: 'exportpdf',
-        text: 'Export PDF',
-        onClick: function() {
-          const doc = new jsPDF();
-          DevExpress.pdfExporter.exportDataGrid({
-            jsPDFDocument: doc,
-            component:  $("#gridContainer")
-          }).then(function() {
-            doc.save('Customers.pdf');
-          });
-        }
-    });
-*/
 };
 
 

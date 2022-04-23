@@ -24,6 +24,7 @@ import os.path
 #date_jour = datetime.date.today().isoformat()
 FICHIER_MAPPING_DOMAINE_SOCIETES = "/tmp/mappingDomaineSocietes_"+config.MAILCHIMP_LIST_ID+".json"
 FICHIER_CACHE_MEMBRES_MAILCHIMP = "/tmp/cacheMembresMailchimp_"+config.MAILCHIMP_LIST_ID+".json"
+FICHIER_CACHE_TAGS_MAILCHIMP = "/tmp/cacheTagsMailchimp_"+config.MAILCHIMP_LIST_ID+".json"
 
 
 APP = flask.Flask(__name__, template_folder='static/templates')
@@ -50,8 +51,9 @@ def about():
 
 
 def is_session_valid():
+    print("Test de la session courante", time.time() >= flask.session['token_expires_at'], time.ctime(time.time()), time.ctime(flask.session['token_expires_at']))
     if ('access_token' not in flask.session.keys()) or (not flask.session['access_token']) or (time.time() >= flask.session['token_expires_at']):
-        #print("invalidation de la session courante", time.time() >= flask.session['token_expires_at'], time.ctime(time.time()), time.ctime(flask.session['token_expires_at']))
+        print("SESSION INVALIDE")
         flask.session={}
         return False
     return True
@@ -61,7 +63,6 @@ def login():
     """Prompt user to authenticate."""
     flask.session['state'] = str(uuid.uuid4())
     flask.session['redirect_target'] = request.args.get('redirect')
-    #TOOD : il serait plus propre de passer la cibel de redirection dans une path du redirect URI encodé en HTML path
     return MSGRAPH.authorize(callback=config.REDIRECT_URI, state=flask.session['state'])
 
 @APP.route(config.REDIRECT_PATH)
@@ -74,7 +75,7 @@ def authorized():
     flask.session['access_token'] = response['access_token']
     expire_date =  time.time() + int(response['expires_in'])
     flask.session['token_expires_at'] = expire_date
-    #print ("SESSSION EXPIRES", flask.session['token_expires_at'], time.ctime(flask.session['token_expires_at']), int(response['expires_in']))
+    print ("SESSSION EXPIRES AT", flask.session['token_expires_at'], time.ctime(flask.session['token_expires_at']), int(response['expires_in']))
 
 
     endpoint = 'me/memberOf'
@@ -127,66 +128,48 @@ def contact_ms_graph2mailchimpData():
     if is_session_valid()==False:
         return flask.redirect( url_for('login', redirect='/contact_ms_graph2mailchimpData'))
     
+    ########## RECUPERER LES CONTACTS MAILCHIMP
+    members = mailchimpListMembers()
+    mailchimpMembersMails = [d['email_address'] for d in members]
+
     ########## RECUPERER LES CONTACTS MS GRAPH
     contacts = []
     offset = 0
     while (True) :
         endpoint = 'me/people?$top='+str(config.MSGRAPH_PAGE_SIZE)+'&select=displayName,scoredEmailAddresses&skip='+str(offset)
-        print(endpoint)
         headers = {'SdkVersion': 'sample-python-flask',
                    'x-client-SKU': 'sample-python-flask',
                    'client-request-id': str(uuid.uuid4()),
                    'return-client-request-id': 'true'}
         graphdata = MSGRAPH.get(endpoint, headers=headers).data
-        #print(len(graphdata))
-        #print(graphdata)
         contacts.extend(graphdata["value"])
-        #print("comp")
-        #print(len(contacts))
-        #print("skip")
-        #print(offset)
-        #print("top")
-        #print(config.MSGRAPH_PAGE_SIZE)
-        #print(len(graphdata["value"]))
         if (len(graphdata["value"]) < config.MSGRAPH_PAGE_SIZE):
             break
         offset = offset + config.MSGRAPH_PAGE_SIZE 
-        #print("new_skip")
-        #print(offset)
 
-    ########## STRUCTURER LES CONTACTS AU FORMAT CIBLE
-    res = {}
+    ########## STRUCTURER LES CONTACTS MICROSOFT AU FORMAT CIBLE
+    res = []
     for contact in contacts:
-        dn = ""
-        if contact['displayName'] != None :
-            dn = contact['displayName']
         for mail in contact["scoredEmailAddresses"]:
-            if config.DOMAIN_EXCLUSION not in mail["address"]:
-                computed_fname = ""
-                computed_lname = ""
-                try:
-                    l = mail["address"].split("@")[0].split('.')
-                    computed_fname = l[0].capitalize()
-                    if (len(l) > 1):
-                        computed_lname = '.'.join(l[1:]).upper()
-                finally:
-                    print("Erreur d'extraction du prénom et du nom pour cette adresse email : "+mail["address"])
-                merge_fields = {'FNAME' : computed_fname, 'LNAME' : computed_lname, 'SOCIETE':getMappingDomaineSocietes(mail["address"])}
-                res[mail["address"]] = {'displayName': contact['displayName'], 'email_address' : mail["address"], 'status' : 'new', 'tags':[], 'vip' : False, 'merge_fields' : merge_fields}
+            if config.DOMAIN_EXCLUSION in mail["address"] :
+                continue
+            if mail["address"] in mailchimpMembersMails : #ne retourner que les contacts Outlook qui ne sont pas encore dans mailchimp
+                continue
 
+            computed_fname = ""
+            computed_lname = ""
+            try:
+                l = mail["address"].split("@")[0].split('.')
+                computed_fname = l[0].capitalize()
+                if (len(l) > 1):
+                    computed_lname = '.'.join(l[1:]).upper()
+            finally:
+                print("Erreur d'extraction du prénom et du nom pour cette adresse email : "+mail["address"])
 
-    ########## RECUPERER LES CONTACTS MAILCHIMP
-    members = mailchimpListMembers()
+            merge_fields = {'FNAME' : computed_fname, 'LNAME' : computed_lname, 'SOCIETE':getMappingDomaineSocietes(mail["address"])}
+            res.append({'displayName': contact['displayName'], 'email_address' : mail["address"], 'status' : 'new', 'tags':[], 'merge_fields' : merge_fields})
+    return jsonify(res)
 
-    ########## INTEGRER LES DONNEES MAILCHIMP DANS LES CONTACTS AU FORMAT PIVOT
-    for member in members:
-      mail = member['email_address']
-      if (mail in res.keys()):
-          #res[mail] = member
-          del res[mail] #ne retourner que les contacts Outlook qui ne sont pas encore dans mailchimp
-      else :
-          pass
-    return jsonify(list(res.values()))
 
 def mailchimpListMembers():
     def appelsApiMembres(last_change=None):
@@ -199,8 +182,6 @@ def mailchimpListMembers():
           
           members = []
           offset = 0
-          #response = client.lists.get_list_members_info(config.MAILCHIMP_LIST_ID, offset=offset, count=config.MAILCHIMP_PAGE_SIZE)
-          #members.extend(response['members'])
           while (True) :
             if (last_change == None):
                 response = client.lists.get_list_members_info(config.MAILCHIMP_LIST_ID, offset=offset, count=config.MAILCHIMP_PAGE_SIZE)
@@ -217,7 +198,6 @@ def mailchimpListMembers():
               for t in member['tags']:
                   tags.append(t['name'])
               member["tags"] = sorted(tags)
-              member['displayName'] = member['merge_fields']['FNAME'] + " " + member['merge_fields']['LNAME'] 
               del member['_links']
           return members
           
@@ -226,7 +206,7 @@ def mailchimpListMembers():
           return False
 
 
-    d = datetime.datetime.now() + datetime.timedelta(hours=-1)
+    d = datetime.datetime.now() + datetime.timedelta(minutes=-15)
     d_format = d.isoformat()
     if not os.path.exists(FICHIER_CACHE_MEMBRES_MAILCHIMP):
         data = {'last_changed' : d_format}
@@ -265,10 +245,10 @@ def mailchimpListMembers():
 @APP.route('/mailchimpAddUpdate', methods=['POST','PUT'])
 def mailchimpAddUpdate():
     if is_session_valid()==False:
-        return flask.redirect( url_for('login', redirect='/mailchimpAddUpdate'))
+        return flask.redirect( url_for('login', redirect='/'))
 
     form = json.loads(request.form.getlist('values')[0])
-    print(form)
+    print("mailchimpAddUpdate / form =",form)
     if 'email_address' in form.keys() :
         email_address =  form['email_address']
     else :
@@ -291,35 +271,33 @@ def mailchimpAddUpdate():
             d['status'] = "subscribed"
         else :
             d['status'] = form['status']
-        if ('vip' in form.keys()):
-            d["vip"] = form["vip"]
         if ('merge_fields' in form.keys()):
             d['merge_fields'] = form['merge_fields']
-        print(d)
         print(flask.session['mail'] + " ===> client.lists.set_list_member", config.MAILCHIMP_LIST_ID, h, d)
         response = client.lists.set_list_member(config.MAILCHIMP_LIST_ID, h, d)
         #TODO : si code HTTP retour = 429, attendre une seconde et recommencer
-        print(response)
+        print(flask.session['mail'] + " ===> Reponse de Mailchimp", response)
 
 
         #MISE A JOUR DES TAGS
         t = []
         if ('tags' not in form.keys()):
             form['tags'] = []
-        response_tags = client.lists.tag_search(config.MAILCHIMP_LIST_ID)
-        for tag in response_tags['tags']:
+        response_tags = getTagList()
+
+        for tag in response_tags:
             if tag['name'] in form['tags']:
                 t.append(dict({"name": tag['name'], "status": "active"}))
             else :
                 t.append(dict({"name": tag['name'], "status": "inactive"}))
 
-        print(flask.session['mail'] + " ===> client.lists.update_list_member_tags", config.MAILCHIMP_LIST_ID, h, t)
+        print(flask.session['mail'], " ===> client.lists.update_list_member_tags", config.MAILCHIMP_LIST_ID, h, t)
         response_update_list_member_tags = client.lists.update_list_member_tags(config.MAILCHIMP_LIST_ID, h, {'tags':t})
         #TODO : si code HTTP retour = 429, attendre une seconde et recommencer
-        print(response_update_list_member_tags)
+        print(flask.session['mail'] + " Réponse de Mailchimp :", response_update_list_member_tags)
 
         incrementMappingDomaineSocietes(response["email_address"], response['merge_fields']['SOCIETE'], response['last_changed'])
-        res = dict({'email_address' : response["email_address"], 'status' : response['status'], 'tags' : sorted(form['tags']), 'vip' : response['vip'], 'merge_fields' : response['merge_fields']})
+        res = dict({'email_address' : response["email_address"], 'status' : response['status'], 'tags' : sorted(form['tags']), 'merge_fields' : response['merge_fields']})
         return jsonify(res)
 
     except ApiClientError as error:
@@ -432,6 +410,42 @@ def mailchimpLists():
       print("Error: {}".format(error.text))
       return False
 
+def getTagList():
+    refresh_cache = False
+    if not os.path.exists(FICHIER_CACHE_TAGS_MAILCHIMP):
+        refresh_cache = True
+    else :
+        with open(FICHIER_CACHE_TAGS_MAILCHIMP, 'r') as j:
+            data = json.loads(j.read())
+        borne = datetime.datetime.now() + datetime.timedelta(minutes=-15)
+        borne_format = borne.isoformat()
+        if data['last_changed'] < borne_format :
+            refresh_cache = True
+
+    if refresh_cache == True:
+        try:
+            client = MailchimpMarketing.Client()
+            client.set_config({
+                "api_key": config.MAILCHIMP_API_KEY,
+                "server": config.MAILCHIMP_SERVER_PREFIX
+            })
+            response = client.lists.tag_search(config.MAILCHIMP_LIST_ID)
+            print('Rafraichissement cache tags mailchimp:',response)
+        except ApiClientError as error:
+            print("Error: {}".format(error.text))
+            return False
+        d_format = datetime.datetime.now().isoformat()
+        data = {'last_changed' : d_format, 'tags' : response['tags']}
+        with open(FICHIER_CACHE_TAGS_MAILCHIMP, 'w') as f:
+            json.dump(data, f, indent=4)
+
+    with open(FICHIER_CACHE_TAGS_MAILCHIMP, 'r') as j:
+        data = json.loads(j.read())
+
+    return data['tags']
+
+
+
 
 @APP.route('/mailchimpMembersTags')
 def mailchimpMembersTags():
@@ -439,16 +453,12 @@ def mailchimpMembersTags():
         return flask.redirect( url_for('login', redirect='/mailchimpMembersTags'))
     
     try:
-        client = MailchimpMarketing.Client()
-        client.set_config({
-            "api_key": config.MAILCHIMP_API_KEY,
-            "server": config.MAILCHIMP_SERVER_PREFIX
-        })
-        response = client.lists.tag_search(config.MAILCHIMP_LIST_ID)
-        return jsonify(response['tags'])
+        response = getTagList() 
+        return jsonify(response)
     except ApiClientError as error:
         print("Error: {}".format(error.text))
-    return jsonify(list(res.values()))
+        return False
+
 
 
 """
@@ -496,6 +506,9 @@ def get_token():
 if __name__ == '__main__':
     import logging
     import sys
+
+    werkzeug_log = logging.getLogger('werkzeug')
+    werkzeug_log.setLevel(logging.ERROR)
 
     root = logging.getLogger()
     root.setLevel(logging.DEBUG)
