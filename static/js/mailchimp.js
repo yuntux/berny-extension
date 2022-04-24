@@ -12,11 +12,12 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
     xmlHttp.send( null );
     var mailchimpMemberTags = JSON.parse(xmlHttp.responseText);
 
+/*
     var xmlHttp = new XMLHttpRequest();
     xmlHttp.open( "GET",url + "/static/js/lib/countries.json", false); // false for synchronous request
     xmlHttp.send( null );
     var countries = JSON.parse(xmlHttp.responseText);
-
+*/
 
     var mailchimpStatus = [
 	    {'code' : 'subscribed', 'name' : 'subscribed'},
