@@ -40,6 +40,8 @@
         <div id="gridContainer"></div>
     </div>
 
+    <a style="color:black" href="/maj_cache">Recharger le cache serveur</a>
+
     <script type="text/javascript">
 	    {% if showDiplayNameColumn == True %}
 		showDiplayNameColumn_js = true
@@ -48,32 +50,5 @@
 	    {% endif %}
 	    build_datagrid_widget("{{loadUrlendpoint}}", showDiplayNameColumn_js);
     </script>
-<!--
-	<div class="container homepage-container">
-            <h1>Mapping Graph Mailchimp</h1>
-	  {% if objects %}
-	  <table>
-	    <thead>
-	      <tr>
-		<th>Nom</th>
-		<th>Mail</th>
-		<th>Statut</th>
-		<th>Tags</th>
-	      </tr>
-	    </thead>
 
-	    <tbody>
-	    {% for object in objects %}
-	      <tr>
-		<td>{{object['displayName']}}</td>
-		<td>{{object.mail}}</td>
-		<td>{{object.status}}</td>
-		<td>{{object.tags}}</td>
-	      </tr>
-	    {% endfor %}
-	    </tbody>
-	  </table>
-	{% endif %}
-        </div>
--->
 {% include 'footer.html' %}

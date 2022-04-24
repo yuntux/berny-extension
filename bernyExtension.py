@@ -49,7 +49,10 @@ def about():
 
 
 def is_session_valid():
-    print("Test de la session courante", time.time() >= flask.session['token_expires_at'], time.ctime(time.time()), time.ctime(flask.session['token_expires_at']))
+    if 'token_expires_at' in flask.session.keys():
+        print("Test de la session courante", time.time() >= flask.session['token_expires_at'], time.ctime(time.time()), time.ctime(flask.session['token_expires_at']))
+    else : 
+        print("'token_expires_at' non defini")
     if ('access_token' not in flask.session.keys()) or (not flask.session['access_token']) or (time.time() >= flask.session['token_expires_at']):
         print("SESSION INVALIDE")
         flask.session={}
@@ -225,7 +228,7 @@ def mailchimpListMembers():
                 data['members'].append(changed_member)
 
         #TODO : la suppression définive de fiches sur Mailchimp ne remontent pas par API et restent dans le cache.
-            #il faut supprimer le cache (ou redémarrer la VM puisque le cache est dans /tmp pour qu'il se rafraichisse
+            #il faut supprimer le cache
             #la bonne pratique est de ne jamais supprimer une fiche définitivement mais d'archiver le contact... mais l'API ne les retourne plus après archivage
             #on peut aussi simplement le passer au statut unsubscribed sur l'IHM Mailchimp... mais dans ce cas il continue à nous être facturé
 
@@ -236,6 +239,8 @@ def mailchimpListMembers():
 
 @APP.route('/mailchimpAddUpdate', methods=['POST','PUT'])
 def mailchimpAddUpdate():
+    #if 'token_expires_at' in flask.session.keys():
+    #    flask.session['token_expires_at'] = 0 #simuler la fin de validité de la session/tocken MS Graph
     if is_session_valid()==False:
         return flask.redirect( url_for('login', redirect='/'))
 
@@ -289,6 +294,7 @@ def mailchimpAddUpdate():
         print(flask.session['mail'] + " Réponse de Mailchimp :", response_update_list_member_tags)
 
         incrementMappingDomaineSocietes(response["email_address"], response['merge_fields']['SOCIETE'], response['last_changed'])
+        del(response['_links'])
         response["tags"] = sorted(form['tags'])
 
         return jsonify(response)
@@ -314,10 +320,29 @@ def mailchimp():
                                     showDiplayNameColumn = False,
                                     message = "")
 
+@APP.route('/maj_cache')
+def majCache():
+    if is_session_valid()==False:
+        return flask.redirect( url_for('login', redirect='/maj_cache'))
+
+    if os.path.exists(config.FICHIER_MAPPING_DOMAINE_SOCIETES):
+        os.remove(config.FICHIER_MAPPING_DOMAINE_SOCIETES)
+
+    if os.path.exists(config.FICHIER_CACHE_MEMBRES_MAILCHIMP):
+        os.remove(config.FICHIER_CACHE_MEMBRES_MAILCHIMP)
+
+    if os.path.exists(config.FICHIER_CACHE_TAGS_MAILCHIMP):
+        os.remove(config.FICHIER_CACHE_TAGS_MAILCHIMP)
+
+    if os.path.exists(config.FICHIER_CACHE_LIST_MAILCHIMP):
+        os.remove(config.FICHIER_CACHE_LIST_MAILCHIMP)
+
+    return flask.redirect("/contact_ms_graph2mailchimp") #contact_ms_graph2mailchimp permet de recharger les 4 fichiers de cache, y compris FICHIER_MAPPING_DOMAINE_SOCIETES
+    
 
 def getMappingDomaineSocietes(address):
     chemin_fichier = config.FICHIER_MAPPING_DOMAINE_SOCIETES
-    domain = address.split("@")[1]
+    domain_target = address.split("@")[1]
     if not os.path.exists(chemin_fichier):
         mapping = {}
         members = mailchimpListMembers()
@@ -343,10 +368,9 @@ def getMappingDomaineSocietes(address):
             mapping = json.loads(j.read())
 
     
-    if domain in mapping.keys():
-        mapping_domain = mapping[domain]
+    if domain_target in mapping.keys():
+        mapping_domain = mapping[domain_target]
         mapping_ordered = list(dict(sorted(mapping_domain.items(), key=lambda item: item[1]['member_last_change'], reverse=True)).keys())
-        #mapping_ordered = list(mapping_domain.keys())
         return mapping_ordered[0]
     else : 
         return ""
@@ -478,44 +502,6 @@ def mailchimpMembersTags():
     except ApiClientError as error:
         print("Error: {}".format(error.text))
         return False
-
-
-
-"""
-@APP.route('/ms_graph_contact2csv')
-def ms_graph_contact2csv():
-    if is_session_valid()==False:
-        return flask.redirect( url_for('login', redirect='/contacts'))
-    endpoint = 'me/people?$top=2500&select=displayName,scoredEmailAddresses'
-    #TODO : gérer la pagination au delà de 2500 objets retournés
-    headers = {'SdkVersion': 'sample-python-flask',
-               'x-client-SKU': 'sample-python-flask',
-               'client-request-id': str(uuid.uuid4()),
-               'return-client-request-id': 'true'}
-    resp = MSGRAPH.get(endpoint, headers=headers)
-    if (resp.status != 200):
-        return "ERREUR : "+str(resp.status)
-
-    graphdata = resp.data
-
-    contactList = graphdata["value"]
-    res = [["Nom","Adresse","IntegrationMailChimp"]]
-    for contact in contactList:
-        dn = ""
-        if contact['displayName'] != None :
-            dn = contact['displayName']
-        for mail in contact["scoredEmailAddresses"]:
-            res.append([dn.replace(';','-'),mail["address"],"oui"])
-    csv = ""
-    for row in res :
-        csv += ';'.join(row)
-        csv += '\n'
-    return Response(
-        csv,
-        mimetype="text/csv",
-        headers={"Content-disposition":
-                 "attachment; mesContacts.csv"})
-"""
 
 
 @MSGRAPH.tokengetter
