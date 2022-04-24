@@ -23,9 +23,6 @@ import os.path
 
 
 #date_jour = datetime.date.today().isoformat()
-FICHIER_MAPPING_DOMAINE_SOCIETES = "/tmp/mappingDomaineSocietes_"+config.MAILCHIMP_LIST_ID+".json"
-FICHIER_CACHE_MEMBRES_MAILCHIMP = "/tmp/cacheMembresMailchimp_"+config.MAILCHIMP_LIST_ID+".json"
-FICHIER_CACHE_TAGS_MAILCHIMP = "/tmp/cacheTagsMailchimp_"+config.MAILCHIMP_LIST_ID+".json"
 
 
 APP = flask.Flask(__name__, template_folder='static/templates')
@@ -114,14 +111,9 @@ def mailchimpData():
     if is_session_valid()==False:
         return flask.redirect( url_for('login', redirect='/mailchimpData'))
 
-    ########## RECUPERER LES CONTACTS MAILCHIMP
     members = mailchimpListMembers()
-    res = {}
-    for member in members:
-        mail = member['email_address']
-        res[mail] = member
 
-    return jsonify(list(res.values()))
+    return jsonify(members)
 
 
 @APP.route('/contact_ms_graph2mailchimpData')
@@ -195,9 +187,7 @@ def mailchimpListMembers():
             offset = offset + config.MAILCHIMP_PAGE_SIZE 
 
           for member in members:
-              tags = []
-              for t in member['tags']:
-                  tags.append(t['name'])
+              tags = [d['name'] for d in member['tags']]
               member["tags"] = sorted(tags)
               del member['_links']
           return members
@@ -207,16 +197,17 @@ def mailchimpListMembers():
           return False
 
 
-    d = datetime.datetime.now() + datetime.timedelta(minutes=-15)
+    chemin_fichier = config.FICHIER_CACHE_MEMBRES_MAILCHIMP
+    d = datetime.datetime.now() + datetime.timedelta(minutes=config.CACHE_MEMBRES_MAILCHIMP_DELAI_MINUTE_LAST_CHANGED)
     d_format = d.isoformat()
-    if not os.path.exists(FICHIER_CACHE_MEMBRES_MAILCHIMP):
+    if not os.path.exists(chemin_fichier):
         data = {'last_changed' : d_format}
         data['members'] = appelsApiMembres()
-        with open(FICHIER_CACHE_MEMBRES_MAILCHIMP, 'w') as f:
+        with open(chemin_fichier, 'w') as f:
             json.dump(data, f, indent=4)
 
     else :
-        with open(FICHIER_CACHE_MEMBRES_MAILCHIMP, 'r') as j:
+        with open(chemin_fichier, 'r') as j:
             data = json.loads(j.read())
         data['last_changed'] = d_format
         changed_members = appelsApiMembres(data["last_changed"])
@@ -238,7 +229,7 @@ def mailchimpListMembers():
             #la bonne pratique est de ne jamais supprimer une fiche définitivement mais d'archiver le contact... mais l'API ne les retourne plus après archivage
             #on peut aussi simplement le passer au statut unsubscribed sur l'IHM Mailchimp... mais dans ce cas il continue à nous être facturé
 
-        with open(FICHIER_CACHE_MEMBRES_MAILCHIMP, 'w') as f:
+        with open(chemin_fichier, 'w') as f:
             json.dump(data, f, indent=4)
 
     return data['members']
@@ -298,8 +289,9 @@ def mailchimpAddUpdate():
         print(flask.session['mail'] + " Réponse de Mailchimp :", response_update_list_member_tags)
 
         incrementMappingDomaineSocietes(response["email_address"], response['merge_fields']['SOCIETE'], response['last_changed'])
-        res = dict({'email_address' : response["email_address"], 'status' : response['status'], 'tags' : sorted(form['tags']), 'merge_fields' : response['merge_fields']})
-        return jsonify(res)
+        response["tags"] = sorted(form['tags'])
+
+        return jsonify(response)
 
     except ApiClientError as error:
         print("Error: {}".format(error.text))
@@ -324,8 +316,9 @@ def mailchimp():
 
 
 def getMappingDomaineSocietes(address):
+    chemin_fichier = config.FICHIER_MAPPING_DOMAINE_SOCIETES
     domain = address.split("@")[1]
-    if not os.path.exists(FICHIER_MAPPING_DOMAINE_SOCIETES):
+    if not os.path.exists(chemin_fichier):
         mapping = {}
         members = mailchimpListMembers()
         for member in members :
@@ -342,11 +335,11 @@ def getMappingDomaineSocietes(address):
                 if (mapping[domain][societe]['member_last_change'] < member['last_changed']):
                     mapping[domain][societe]['member_last_change'] = member['last_changed']
 
-        with open(FICHIER_MAPPING_DOMAINE_SOCIETES, 'w') as f:
+        with open(chemin_fichier, 'w') as f:
             json.dump(mapping, f, indent=4)
 
     else :
-        with open(FICHIER_MAPPING_DOMAINE_SOCIETES, 'r') as j:
+        with open(chemin_fichier, 'r') as j:
             mapping = json.loads(j.read())
 
     
@@ -360,12 +353,13 @@ def getMappingDomaineSocietes(address):
 
 
 def incrementMappingDomaineSocietes(address, societe, last_changed):
-    if not os.path.exists(FICHIER_MAPPING_DOMAINE_SOCIETES):
+    chemin_fichier = config.FICHIER_MAPPING_DOMAINE_SOCIETES
+    if not os.path.exists(chemin_fichier):
         return False
     if (len(societe) == 0):
         return False
     domain = address.split("@")[1]
-    with open(FICHIER_MAPPING_DOMAINE_SOCIETES, 'r') as j:
+    with open(chemin_fichier, 'r') as j:
         mapping = json.loads(j.read())
     if domain not in mapping.keys():
         mapping[domain] = {}
@@ -376,7 +370,7 @@ def incrementMappingDomaineSocietes(address, societe, last_changed):
         if (mapping[domain][societe]['member_last_change'] < last_changed):
             mapping[domain][societe]['member_last_change'] = last_changed
 
-    with open(FICHIER_MAPPING_DOMAINE_SOCIETES, 'w') as f:
+    with open(chemin_fichier, 'w') as f:
         json.dump(mapping, f, indent=4)
 
     
@@ -397,28 +391,53 @@ def contact_ms_graph2mailchimp():
 
 
 def mailchimpLists():
-    try:
-      client = MailchimpMarketing.Client()
-      client.set_config({
-        "api_key": config.MAILCHIMP_API_KEY,
-        "server": config.MAILCHIMP_SERVER_PREFIX
-      })
-      #res_l = client.lists.get_all_lists()
-      #TODO : si code HTTP retour = 429, attendre une seconde et recommencer
-      response = client.lists.get_list(config.MAILCHIMP_LIST_ID)
-      return response
-    except ApiClientError as error:
-      print("Error: {}".format(error.text))
-      return False
-
-def getTagList():
+    chemin_fichier = config.FICHIER_CACHE_LIST_MAILCHIMP
     refresh_cache = False
-    if not os.path.exists(FICHIER_CACHE_TAGS_MAILCHIMP):
+    if not os.path.exists(chemin_fichier):
         refresh_cache = True
     else :
-        with open(FICHIER_CACHE_TAGS_MAILCHIMP, 'r') as j:
+        with open(chemin_fichier, 'r') as j:
             data = json.loads(j.read())
-        borne = datetime.datetime.now() + datetime.timedelta(minutes=-15)
+        borne = datetime.datetime.now() + datetime.timedelta(minutes=config.CACHE_LIST_MAILCHIMP_DELAI_MINUTE)
+        borne_format = borne.isoformat()
+        if data['last_changed'] < borne_format :
+            refresh_cache = True
+
+    if refresh_cache == True:
+        try:
+          client = MailchimpMarketing.Client()
+          client.set_config({
+            "api_key": config.MAILCHIMP_API_KEY,
+            "server": config.MAILCHIMP_SERVER_PREFIX
+          })
+          #TODO : si code HTTP retour = 429, attendre une seconde et recommencer
+          response = client.lists.get_list(config.MAILCHIMP_LIST_ID)
+          print('Rafraichissement cache liste mailchimp:',response)
+        except ApiClientError as error:
+          print("Error: {}".format(error.text))
+          return False
+
+        d_format = datetime.datetime.now().isoformat()
+        data = {'last_changed' : d_format, 'list' : response}
+        with open(chemin_fichier, 'w') as f:
+            json.dump(data, f, indent=4)
+
+    with open(chemin_fichier, 'r') as j:
+        data = json.loads(j.read())
+
+    return data['list']
+
+
+
+def getTagList():
+    chemin_fichier = config.FICHIER_CACHE_TAGS_MAILCHIMP
+    refresh_cache = False
+    if not os.path.exists(chemin_fichier):
+        refresh_cache = True
+    else :
+        with open(chemin_fichier, 'r') as j:
+            data = json.loads(j.read())
+        borne = datetime.datetime.now() + datetime.timedelta(minutes=config.CACHE_TAGS_MAILCHIMP_DELAI_MINUTE)
         borne_format = borne.isoformat()
         if data['last_changed'] < borne_format :
             refresh_cache = True
@@ -437,10 +456,10 @@ def getTagList():
             return False
         d_format = datetime.datetime.now().isoformat()
         data = {'last_changed' : d_format, 'tags' : response['tags']}
-        with open(FICHIER_CACHE_TAGS_MAILCHIMP, 'w') as f:
+        with open(chemin_fichier, 'w') as f:
             json.dump(data, f, indent=4)
 
-    with open(FICHIER_CACHE_TAGS_MAILCHIMP, 'r') as j:
+    with open(chemin_fichier, 'r') as j:
         data = json.loads(j.read())
 
     return data['tags']

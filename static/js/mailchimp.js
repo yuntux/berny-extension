@@ -77,6 +77,9 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
 	repaintChangesOnly: true,
         columnAutoWidth: true,
         allowColumnReordering: true,
+	sorting: {
+      		mode: 'multiple',
+    },
         filterRow: {
             visible: true,
             applyFilter: "auto"
@@ -111,7 +114,7 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
             enabled: true
         },
         scrolling: {
-		mode: "infinite"
+		mode: "standard" //"infinite"
 	},
         export: {
           enabled: true,
@@ -178,6 +181,13 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
                     valueExpr: "code"
                 }
             },{
+                caption: "lastChanged",
+                dataField:"last_changed", 
+		allowHeaderFiltering: false,
+		visible:false,
+		allowEditing: false,
+		sortOrder: 'desc',
+	    },{
                 caption: "Mail",
                 dataField:"email_address", 
 		allowHeaderFiltering: false,
@@ -216,7 +226,7 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
 				searchEnabled: true,
 			     	value: cellData.value,
 			     	onValueChanged: function(e) {
-					console.log(e.value);
+					//console.log(e.value);
                  			cellData.setValue(e.value)
              			},
 				placeholder: "Choissisez un tag...",
