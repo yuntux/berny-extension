@@ -76,3 +76,12 @@ nav ul a {
 *, ::before, ::after {
     box-sizing: inherit;
 }
+
+
+/* Surcharge des CSS de devXtreme */
+.dx-texteditor-input:read-only {
+  background-color : grey;
+}
+.dx-state-disabled .dx-widget, .dx-state-disabled.dx-widget {
+  opacity:1 !important;
+}

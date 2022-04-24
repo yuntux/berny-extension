@@ -79,7 +79,7 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
         allowColumnReordering: true,
 	sorting: {
       		mode: 'multiple',
-    },
+    	},
         filterRow: {
             visible: true,
             applyFilter: "auto"
