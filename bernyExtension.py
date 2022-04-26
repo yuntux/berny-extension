@@ -18,6 +18,7 @@ import mailchimp_marketing as MailchimpMarketing
 from mailchimp_marketing.api_client import ApiClientError
 import json
 import hashlib
+import requests
 
 import os.path
 
@@ -49,12 +50,24 @@ def about():
 
 
 def is_session_valid():
+    d = datetime.datetime.now().isoformat()
     if 'token_expires_at' in flask.session.keys():
-        print("Test de la session courante", time.time() >= flask.session['token_expires_at'], time.ctime(time.time()), time.ctime(flask.session['token_expires_at']))
+        print("Test de la session courante",  d, "*", flask.session['token_expires_at'])
+        #print("Test de la session courante", d > flask.session['token_expires_at'], d, ">", flask.session['token_expires_at'])
     else : 
         print("'token_expires_at' non defini")
-    if ('access_token' not in flask.session.keys()) or (not flask.session['access_token']) or (time.time() >= flask.session['token_expires_at']):
-        print("SESSION INVALIDE")
+    if ('access_token' not in flask.session.keys()) or (not flask.session['access_token']) or (d > flask.session['token_expires_at']):
+        print("SESSION INVALIDE :", flask.session)
+        if ('token_expires_at' in flask.session.keys()  and 'refresh_token' in flask.session.keys() and d > flask.session['token_expires_at']):
+            print('La session va être rafraichie')
+            response = refresh_credentials(flask.session['refresh_token'])
+            if 'access_token' not in response.keys():
+                print("Impossible de rafraichir la session à partir du refresh_token")
+                flask.session={}
+                return False
+            initSessionTokens(response)
+            print('Session rafraichie')
+            return True
         flask.session={}
         return False
     return True
@@ -62,9 +75,29 @@ def is_session_valid():
 @APP.route('/login')
 def login():
     """Prompt user to authenticate."""
+    flask.session={}
     flask.session['state'] = str(uuid.uuid4())
     flask.session['redirect_target'] = request.args.get('redirect')
     return MSGRAPH.authorize(callback=config.REDIRECT_URI, state=flask.session['state'])
+
+@APP.route("/logout")
+def logout():
+    flask.session={}
+    return redirect(config.AUTHORITY_URL + config.LOGOUT_ENDPOINT + "?post_logout_redirect_uri=https://beta.tasmane.com")
+
+def initSessionTokens(response):
+    print("MSGRAPH auth response : ", response)
+    flask.session['access_token'] = response['access_token']
+    print("New access token : ", flask.session['access_token'])
+    response['expires_in'] = 5
+    d = datetime.datetime.now() + datetime.timedelta(seconds=response['expires_in'])
+    expire_date = d.isoformat()
+    flask.session['token_expires_at'] = expire_date
+    if 'refresh_token' in response.keys(): #MS ne retourne pas de refresh_token si offline_access n'est pas intégré au scope
+        flask.session['refresh_token'] = response['refresh_token']
+    print ("SESSION EXPIRES AT", flask.session['token_expires_at'], int(response['expires_in']))
+
+
 
 @APP.route(config.REDIRECT_PATH)
 def authorized():
@@ -72,12 +105,7 @@ def authorized():
     if str(flask.session['state']) != str(flask.request.args['state']):
         raise Exception('state returned to redirect URL does not match!')
     response = MSGRAPH.authorized_response()
-    print("MSGRAPH auth response : ", response)
-    flask.session['access_token'] = response['access_token']
-    expire_date =  time.time() + int(response['expires_in'])
-    flask.session['token_expires_at'] = expire_date
-    print ("SESSSION EXPIRES AT", flask.session['token_expires_at'], time.ctime(flask.session['token_expires_at']), int(response['expires_in']))
-
+    initSessionTokens(response)
 
     endpoint = 'me/memberOf'
     headers = {'SdkVersion': 'sample-python-flask',
@@ -108,6 +136,16 @@ def authorized():
     del flask.session['redirect_target']
     return flask.redirect(redirect_target)
 
+
+def refresh_credentials(refresh_token):
+    data = {
+        'grant_type': 'refresh_token',
+        'refresh_token': refresh_token,
+        'client_id': MSGRAPH.consumer_key,
+        'client_secret': MSGRAPH.consumer_secret}
+    response = requests.post(MSGRAPH.access_token_url, data=data)
+    credentials = response.json()
+    return credentials
 
 @APP.route('/mailchimpData')
 def mailchimpData():
@@ -154,13 +192,10 @@ def contact_ms_graph2mailchimpData():
 
             computed_fname = ""
             computed_lname = ""
-            try:
-                l = mail["address"].split("@")[0].split('.')
-                computed_fname = l[0].title()
-                if (len(l) > 1):
-                    computed_lname = '.'.join(l[1:]).upper()
-            finally:
-                print("Erreur d'extraction du prénom et du nom pour cette adresse email : "+mail["address"])
+            l = mail["address"].split("@")[0].split('.')
+            computed_fname = l[0].title()
+            if (len(l) > 1):
+                computed_lname = '.'.join(l[1:]).upper()
 
             merge_fields = {'FNAME' : computed_fname, 'LNAME' : computed_lname, 'SOCIETE':getMappingDomaineSocietes(mail["address"])}
             res.append({'displayName': contact['displayName'], 'email_address' : mail["address"], 'status' : 'new', 'tags':[], 'merge_fields' : merge_fields})
@@ -239,8 +274,6 @@ def mailchimpListMembers():
 
 @APP.route('/mailchimpAddUpdate', methods=['POST','PUT'])
 def mailchimpAddUpdate():
-    #if 'token_expires_at' in flask.session.keys():
-    #    flask.session['token_expires_at'] = 0 #simuler la fin de validité de la session/tocken MS Graph
     if is_session_valid()==False:
         return flask.redirect( url_for('login', redirect='/'))
 
