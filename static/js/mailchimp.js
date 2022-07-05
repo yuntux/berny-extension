@@ -117,6 +117,16 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
         scrolling: {
 		mode: "standard" //"infinite"
 	},
+        paging: {
+             pageSize: 1000,
+        },
+        pager: {
+           visible: true,
+	   //allowedPageSizes: [5, 10, 'all'],
+           showPageSizeSelector: true,
+           showInfo: true,
+          showNavigationButtons: true,
+        },
         export: {
           enabled: true,
           allowExportSelectedData: false
