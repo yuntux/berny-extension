@@ -379,7 +379,7 @@ def mailchimp():
                                     loadUrlendpoint = "/mailchimpData",
                                     titre = "Liste des contacts Mailchimp",
                                     showDiplayNameColumn = False,
-                                    message = "")
+                                    message = "Cette page liste tous les contacts stockés dans Mailchimp, quel que soit l'utilisateur qui les a saisis.")
 
 @APP.route('/maj_cache')
 def majCache():
@@ -497,7 +497,7 @@ def mailchimpLists():
           })
           #TODO : si code HTTP retour = 429, attendre une seconde et recommencer
           response = client.lists.get_list(config.MAILCHIMP_LIST_ID)
-          print('Rafraichissement cache liste mailchimp:',response)
+          print(flask.session['mail'] + '=> Rafraichissement cache liste mailchimp:',response)
         except ApiClientError as error:
           print("Error: {}".format(error.text))
           return False
