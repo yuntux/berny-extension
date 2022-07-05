@@ -52,63 +52,63 @@ def about():
 
 
 def is_session_valid():
-    #if not session.get("iiii"):
+    #if not flask.session.get("iiii"):
     #    print("pppppp")
-    #print("ooo",session['iiiii'])
+    #print("ooo",flask.session['iiiii'])
 
     d = datetime.datetime.now().isoformat()
-    if 'token_expires_at' in session.keys():
-        print("Test de la session courante",  d, "*", session['token_expires_at'])
-        #print("Test de la session courante", d > session['token_expires_at'], d, ">", session['token_expires_at'])
+    if 'token_expires_at' in flask.session.keys():
+        print("Test de la flask.session courante",  d, "*", flask.session['token_expires_at'])
+        #print("Test de la flask.session courante", d > flask.session['token_expires_at'], d, ">", flask.session['token_expires_at'])
     else : 
         print("'token_expires_at' non defini")
-    if ('access_token' not in session.keys()) or (not session['access_token']) or (d > session['token_expires_at']):
-        print("SESSION INVALIDE :", session)
-        if ('token_expires_at' in session.keys()  and 'refresh_token' in session.keys() and d > session['token_expires_at']):
-            print('La session va être rafraichie')
-            response = refresh_credentials(session['refresh_token'])
+    if ('access_token' not in flask.session.keys()) or (not flask.session['access_token']) or (d > flask.session['token_expires_at']):
+        print("SESSION INVALIDE :", flask.session)
+        if ('token_expires_at' in flask.session.keys()  and 'refresh_token' in flask.session.keys() and d > flask.session['token_expires_at']):
+            print('La flask.session va être rafraichie')
+            response = refresh_credentials(flask.session['refresh_token'])
             if 'access_token' not in response.keys():
-                print("Impossible de rafraichir la session à partir du refresh_token")
-                session={}
+                print("Impossible de rafraichir la flask.session à partir du refresh_token")
+                flask.session={}
                 return False
             initSessionTokens(response)
             print('Session rafraichie')
             return True
-        session={}
+        flask.session={}
         return False
     return True
 
 @APP.route('/login')
 def login():
     """Prompt user to authenticate."""
-    #session={}
-    session['state'] = str(uuid.uuid4())
-    session['redirect_target'] = request.args.get('redirect')
-    return MSGRAPH.authorize(callback=config.REDIRECT_URI, state=session['state'])
+    #flask.session={}
+    flask.session['state'] = str(uuid.uuid4())
+    flask.session['redirect_target'] = request.args.get('redirect')
+    return MSGRAPH.authorize(callback=config.REDIRECT_URI, state=flask.session['state'])
 
 @APP.route("/logout")
 def logout():
-    session={}
+    flask.session={}
     return redirect(config.AUTHORITY_URL + config.LOGOUT_ENDPOINT + "?post_logout_redirect_uri=https://beta.tasmane.com")
 
 def initSessionTokens(response):
     print("MSGRAPH auth response : ", response)
-    session['access_token'] = response['access_token']
-    print("New access token : ", session['access_token'])
+    flask.session['access_token'] = response['access_token']
+    print("New access token : ", flask.session['access_token'])
     #response['expires_in'] = 5
     d = datetime.datetime.now() + datetime.timedelta(seconds=response['expires_in'])
     expire_date = d.isoformat()
-    session['token_expires_at'] = expire_date
+    flask.session['token_expires_at'] = expire_date
     if 'refresh_token' in response.keys(): #MS ne retourne pas de refresh_token si offline_access n'est pas intégré au scope
-        session['refresh_token'] = response['refresh_token']
-    print ("SESSION EXPIRES AT", session['token_expires_at'], int(response['expires_in']))
+        flask.session['refresh_token'] = response['refresh_token']
+    print ("SESSION EXPIRES AT", flask.session['token_expires_at'], int(response['expires_in']))
 
 
 
 @APP.route(config.REDIRECT_PATH)
 def authorized():
     """Handler for the application's Redirect Uri."""
-    if str(session['state']) != str(flask.request.args['state']):
+    if str(flask.session['state']) != str(flask.request.args['state']):
         raise Exception('state returned to redirect URL does not match!')
     response = MSGRAPH.authorized_response()
     initSessionTokens(response)
@@ -124,7 +124,7 @@ def authorized():
         if group['id'] == config.ID_AUTHORIZED_GROUP:
             insideAuthorizedGroup = True
     if insideAuthorizedGroup == False:
-        session={}
+        flask.session={}
         return "ERREUR : Vous n'apparatenez pas au groupe authorisé à accéder à cette fonction"
 
     endpoint = 'me'
@@ -134,12 +134,12 @@ def authorized():
                'return-client-request-id': 'true'}
     graphdata = MSGRAPH.get(endpoint, headers=headers).data
     
-    session['displayName'] = graphdata['displayName']
-    session['mail'] = graphdata['mail']
-    redirect_target = session['redirect_target']
+    flask.session['displayName'] = graphdata['displayName']
+    flask.session['mail'] = graphdata['mail']
+    redirect_target = flask.session['redirect_target']
     if redirect_target == None:
         redirect_target = "/"
-    del session['redirect_target']
+    del flask.session['redirect_target']
     return flask.redirect(redirect_target)
 
 
@@ -205,7 +205,7 @@ def contact_ms_graph2mailchimpData():
 
             merge_fields = {'FNAME' : computed_fname, 'LNAME' : computed_lname, 'SOCIETE':getMappingDomaineSocietes(mail["address"])}
             res.append({'displayName': contact['displayName'], 'email_address' : mail["address"], 'last_changed':'2000-01-01', 'status' : 'new', 'tags':[], 'merge_fields' : merge_fields})
-    print("RETOUR /contact_ms_graph2mailchimpData ", session['mail'], res)
+    print("RETOUR /contact_ms_graph2mailchimpData ", flask.session['mail'], res)
     return jsonify(res)
 
 
@@ -312,10 +312,10 @@ def mailchimpAddUpdate():
             d['status'] = form['status']
         if ('merge_fields' in form.keys()):
             d['merge_fields'] = form['merge_fields']
-        print(session['mail'] + " ===> client.lists.set_list_member", config.MAILCHIMP_LIST_ID, h, d)
+        print(flask.session['mail'] + " ===> client.lists.set_list_member", config.MAILCHIMP_LIST_ID, h, d)
         response = client.lists.set_list_member(config.MAILCHIMP_LIST_ID, h, d)
         #TODO : si code HTTP retour = 429, attendre une seconde et recommencer
-        print(session['mail'] + " ===> Reponse de Mailchimp", response)
+        print(flask.session['mail'] + " ===> Reponse de Mailchimp", response)
 
 
         #MISE A JOUR DES TAGS
@@ -330,10 +330,10 @@ def mailchimpAddUpdate():
             else :
                 t.append(dict({"name": tag['name'], "status": "inactive"}))
 
-        print(session['mail'], " ===> client.lists.update_list_member_tags", config.MAILCHIMP_LIST_ID, h, t)
+        print(flask.session['mail'], " ===> client.lists.update_list_member_tags", config.MAILCHIMP_LIST_ID, h, t)
         response_update_list_member_tags = client.lists.update_list_member_tags(config.MAILCHIMP_LIST_ID, h, {'tags':t})
         #TODO : si code HTTP retour = 429, attendre une seconde et recommencer
-        print(session['mail'] + " Réponse de Mailchimp :", response_update_list_member_tags)
+        print(flask.session['mail'] + " Réponse de Mailchimp :", response_update_list_member_tags)
 
         incrementMappingDomaineSocietes(response["email_address"], response['merge_fields']['SOCIETE'], response['last_changed'])
         del(response['_links'])
@@ -453,7 +453,7 @@ def contact_ms_graph2mailchimp():
                                     loadUrlendpoint = "/contact_ms_graph2mailchimpData",
                                     titre = "Ajout sur Mailchimp des contacts avec lesquels j'ai des intéractions par email",
                                     showDiplayNameColumn = True,
-                                    message = session['displayName']+" Cet écran affiche tous les contacts avec lesquels vous avez des interaction par email, et qui ne sont pas encore sur Mailchimp.\nPour éditer un contact qui est déjà sur Mailchimp, cliquez sur le menu Mailchimp dans le menu.")
+                                    message = flask.session['displayName']+" Cet écran affiche tous les contacts avec lesquels vous avez des interaction par email, et qui ne sont pas encore sur Mailchimp.\nPour éditer un contact qui est déjà sur Mailchimp, cliquez sur le menu Mailchimp dans le menu.")
 
 
 def mailchimpLists():
@@ -549,8 +549,8 @@ def mailchimpMembersTags():
 @MSGRAPH.tokengetter
 def get_token():
     """Called by flask_oauthlib.client to retrieve current access token."""
-    #return (session.get('access_token'), '')
-    return (session['access_token'], '')
+    #return (flask.session.get('access_token'), '')
+    return (flask.session['access_token'], '')
 
 if __name__ == '__main__':
     import logging
