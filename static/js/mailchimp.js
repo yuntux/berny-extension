@@ -111,6 +111,14 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
         groupPanel: {
             visible: true   // or "auto"
         },
+	summary: {
+            groupItems: [
+		{
+                    column: "Société",
+                    summaryType: "count"
+            	},
+            ]
+        },
         loadPanel: {
             enabled: true
         },
