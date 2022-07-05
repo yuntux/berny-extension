@@ -9,7 +9,6 @@ from flask import url_for
 from flask import jsonify
 from flask_oauthlib.client import OAuth
 from flask import session
-from flask_session import Session
 
 import config
 
@@ -28,8 +27,12 @@ import os.path
 
 APP = flask.Flask(__name__, template_folder='static/templates')
 #APP.secret_key = config.APP_SECRET_KEY
+
+from flask_session import Session
+APP.config["SESSION_PERMANENT"] = False
 APP.config["SESSION_TYPE"] = "filesystem"
 Session(APP)
+
 OAUTH = OAuth(APP)
 MSGRAPH = OAUTH.remote_app(
     'microsoft', consumer_key=config.CLIENT_ID, consumer_secret=config.CLIENT_SECRET,
@@ -50,6 +53,11 @@ def homepage():
 def about():
     return flask.render_template('about.html')
 
+def empty_session():
+    #flask.session = {}
+    #flask.session.clear()
+    [flask.session.pop(key) for key in list(flask.session.keys()) if key != '_flashes']
+
 
 def is_session_valid():
     #if not flask.session.get("iiii"):
@@ -69,26 +77,26 @@ def is_session_valid():
             response = refresh_credentials(flask.session['refresh_token'])
             if 'access_token' not in response.keys():
                 print("Impossible de rafraichir la flask.session à partir du refresh_token")
-                flask.session={}
+                empty_session()
                 return False
             initSessionTokens(response)
             print('Session rafraichie')
             return True
-        flask.session={}
+        empty_session()
         return False
     return True
 
 @APP.route('/login')
 def login():
     """Prompt user to authenticate."""
-    #flask.session={}
+    empty_session()
     flask.session['state'] = str(uuid.uuid4())
     flask.session['redirect_target'] = request.args.get('redirect')
     return MSGRAPH.authorize(callback=config.REDIRECT_URI, state=flask.session['state'])
 
 @APP.route("/logout")
 def logout():
-    flask.session={}
+    empty_session()
     return redirect(config.AUTHORITY_URL + config.LOGOUT_ENDPOINT + "?post_logout_redirect_uri=https://beta.tasmane.com")
 
 def initSessionTokens(response):
@@ -176,6 +184,7 @@ def contact_ms_graph2mailchimpData():
     contacts = []
     offset = 0
     while (True) :
+        print("========= Appl contacts MSGRAPH =======", flask.session['mail'], flask.session['access_token'])
         endpoint = 'me/people?$top='+str(config.MSGRAPH_PAGE_SIZE)+'&select=displayName,scoredEmailAddresses&skip='+str(offset)
         headers = {'SdkVersion': 'sample-python-flask',
                    'x-client-SKU': 'sample-python-flask',
@@ -186,6 +195,7 @@ def contact_ms_graph2mailchimpData():
         if (len(graphdata["value"]) < config.MSGRAPH_PAGE_SIZE):
             break
         offset = offset + config.MSGRAPH_PAGE_SIZE 
+    print("=== REPONSE MS GRAPH ===", flask.session['mail'], flask.session['access_token'], len(contacts), contacts)
 
     ########## STRUCTURER LES CONTACTS MICROSOFT AU FORMAT CIBLE
     res = []
@@ -415,7 +425,7 @@ def getMappingDomaineSocietes(address):
         mapping_ordered = list(dict(sorted(mapping_domain.items(), key=lambda item: item[1]['member_last_change'], reverse=True)).keys())
         return mapping_ordered[0]
     else : 
-        return ""
+        return domain_target.split(".")[0]
 
 
 def incrementMappingDomaineSocietes(address, societe, last_changed):
@@ -550,6 +560,8 @@ def mailchimpMembersTags():
 def get_token():
     """Called by flask_oauthlib.client to retrieve current access token."""
     #return (flask.session.get('access_token'), '')
+    if 'mail' in flask.session.keys():
+        print("===== get_token =====", flask.session['mail'], flask.session['access_token'])
     return (flask.session['access_token'], '')
 
 if __name__ == '__main__':
