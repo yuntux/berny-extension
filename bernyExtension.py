@@ -60,10 +60,6 @@ def empty_session():
 
 
 def is_session_valid():
-    #if not flask.session.get("iiii"):
-    #    print("pppppp")
-    #print("ooo",flask.session['iiiii'])
-
     d = datetime.datetime.now().isoformat()
     if 'token_expires_at' in flask.session.keys():
         print("Test de la flask.session courante",  d, "*", flask.session['token_expires_at'])

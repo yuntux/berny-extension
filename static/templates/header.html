@@ -22,7 +22,9 @@ See LICENSE in the source repository root for complete license information. -->
                     <li><a href="/mailchimp">Mailchimp</a></li>
 		    <li><a href="/contact_ms_graph2mailchimp">MS contacts => Mailchimp</a></li>
                     <li><a href="/about">À propos</a></li>
-                    <li><a href="/logout">Se déconnecter</a></li>
+		    {% if 'mail' in session.keys() %}
+                    	<li><a href="/logout">Se déconnecter</a></li>
+		    {% endif %}
                 </ul>
             </div>
 	</nav>
