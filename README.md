@@ -4,15 +4,14 @@ La page pour ajouter les contacts outlook à l’audience Mailchimp  https://bet
 
 	* Les contacts qui sont déjà dans Mailchimp ne s’affichent pas sur cette page
 
-	* Les valeurs des champs Nom, Prénom sont des valeur préreùplies
+	* Les valeurs des champs Nom, Prénom sont des valeurs pré-remplies à partir de l'adresse mail
 
 	* La valeur prémachée pour la société correspond à la valeur de l’attribut société pour le dernier contact dont l’email est sur le même domaine email (@xxx.com) qui a été modifié/ajouté. Si aucun contact avec ce domaine n'est enregistré sur Mailchimp ou que leur attribut Société est vide, alors l'application "pré-remplit" l'attribut société avec le début du nom de domaine de l'adresse email, mis en majuscules.
 
 Comment ajouter un contact à Mailchimp à partir de cette page : 
 
-	* Chercher le contact dans la liste puis cliquer sur « Ajouter à Mailchimp » : le contact est créé au statut « subscribed » dans Mailchimp avec les valeurs déduites au moyen de son adresse mail (donc pas toujours top qualité).
+	* Chercher le contact dans la liste puis cliquer sur « Ajouter à Mailchimp » : le contact est créé au statut « subscribed » dans Mailchimp avec les valeurs déduites au moyen de son adresse mail (donc pas toujours top qualité). Le bouton Ajouter à Mailchimp devient Editer.
 
-Le bouton Ajouter à Mailchimp devient Editer.
 	* Cliquer sur « Editer » pour ajuster le nom, le prénom, la société, le rôle et les tags. => Cette étape est techniquement facultative mais fortement recommandée pour avoir une base de qualité.
  
 Pour vérifier que le contact est bien dans Mailchimp, cliquer sur Mailchimp dans le menu en haut de page. => Le contact ajouté apparaît en haut de liste. Si l'utilsiateur retourne ensuite sur la page d'ajout de comptacts Mailchim à partir des contact Microsoft, cette fois cette personne n’apparait plus car elle est déjà dans Mailchimp.
