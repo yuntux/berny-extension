@@ -54,7 +54,7 @@ def about():
     return flask.render_template('about.html')
 
 def empty_session():
-    #flask.session = {}
+    #flask.session = {} => /!\ Cela casse complètement le fonctionnement des sessions
     #flask.session.clear()
     [flask.session.pop(key) for key in list(flask.session.keys()) if key != '_flashes']
 
@@ -209,7 +209,13 @@ def contact_ms_graph2mailchimpData():
             if (len(l) > 1):
                 computed_lname = '.'.join(l[1:]).upper()
 
-            merge_fields = {'FNAME' : computed_fname, 'LNAME' : computed_lname, 'SOCIETE':getMappingDomaineSocietes(mail["address"])}
+            societe =  getMappingDomaineSocietes(mail["address"])
+            if societe == "":
+                domain_target = mail["address"].split("@")[1]
+                d = domain_target.split(".")
+                d.pop()
+                societe = ".".join(d).upper()
+            merge_fields = {'FNAME' : computed_fname, 'LNAME' : computed_lname, 'SOCIETE':societe}
             res.append({'displayName': contact['displayName'], 'email_address' : mail["address"], 'last_changed':'2000-01-01', 'status' : 'new', 'tags':[], 'merge_fields' : merge_fields})
     print("RETOUR /contact_ms_graph2mailchimpData ", flask.session['mail'], res)
     return jsonify(res)
@@ -421,8 +427,7 @@ def getMappingDomaineSocietes(address):
         mapping_ordered = list(dict(sorted(mapping_domain.items(), key=lambda item: item[1]['member_last_change'], reverse=True)).keys())
         return mapping_ordered[0]
     else : 
-        return domain_target.split(".")[0]
-
+        return ""
 
 def incrementMappingDomaineSocietes(address, societe, last_changed):
     chemin_fichier = config.FICHIER_MAPPING_DOMAINE_SOCIETES
