@@ -164,8 +164,8 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
                 type: "buttons",
                 width: 110,
                 buttons: ["edit", "delete", {
-                    hint: "Ajouter à mailchimp",
-                    text: "Ajouter à mailchimp",
+                    hint: "Ajouter à Mailchimp",
+                    text: "Ajouter à Mailchimp",
                     //icon: "repeat",
                     visible: function(e) {
                         return e.row.data.status == "new";

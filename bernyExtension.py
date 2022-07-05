@@ -360,6 +360,12 @@ def mailchimpAddUpdate():
     return Response(jsonify("Erreur"), 500)
 
 
+def list_prod_active(id_liste_active):
+    is_prod = False
+    if id_liste_active == config.MAILCHIMP_LIST_ID_PRODUCTION:
+        is_prod = True
+    return is_prod
+
 @APP.route('/mailchimp')
 def mailchimp():
     if is_session_valid()==False:
@@ -369,6 +375,7 @@ def mailchimp():
                                     list_id_api=response['id'],
                                     list_id_web=response['web_id'], 
                                     list_name=response['name'], 
+                                    list_prod_active=list_prod_active(response['id']),
                                     loadUrlendpoint = "/mailchimpData",
                                     titre = "Liste des contacts Mailchimp",
                                     showDiplayNameColumn = False,
@@ -461,10 +468,11 @@ def contact_ms_graph2mailchimp():
                                     list_id_api=response['id'],
                                     list_id_web=response['web_id'],
                                     list_name=response['name'],
+                                    list_prod_active=list_prod_active(response['id']),
                                     loadUrlendpoint = "/contact_ms_graph2mailchimpData",
                                     titre = "Ajout sur Mailchimp des contacts avec lesquels j'ai des intéractions par email",
                                     showDiplayNameColumn = True,
-                                    message = flask.session['displayName']+" Cet écran affiche tous les contacts avec lesquels vous avez des interaction par email, et qui ne sont pas encore sur Mailchimp.\nPour éditer un contact qui est déjà sur Mailchimp, cliquez sur le menu Mailchimp dans le menu.")
+                                    message = "Cet écran affiche tous les contacts avec lesquels vous avez des interaction par email, et qui ne sont pas encore sur Mailchimp.\nPour éditer un contact qui est déjà sur Mailchimp, cliquez sur le menu Mailchimp dans le menu.")
 
 
 def mailchimpLists():
