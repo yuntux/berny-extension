@@ -62,21 +62,22 @@ def empty_session():
 def is_session_valid():
     d = datetime.datetime.now().isoformat()
     if 'token_expires_at' in flask.session.keys():
-        print("Test de la flask.session courante",  d, "*", flask.session['token_expires_at'])
+        pass
+        #APP.logger.debug('Test de la flask.session courante : %s * %s', d, flask.session['token_expires_at'])
         #print("Test de la flask.session courante", d > flask.session['token_expires_at'], d, ">", flask.session['token_expires_at'])
     else : 
-        print("'token_expires_at' non defini")
+        APP.logger.debug("'token_expires_at' non defini")
     if ('access_token' not in flask.session.keys()) or (not flask.session['access_token']) or (d > flask.session['token_expires_at']):
-        print("SESSION INVALIDE :", flask.session)
+        APP.logger.debug("SESSION INVALIDE")
         if ('token_expires_at' in flask.session.keys()  and 'refresh_token' in flask.session.keys() and d > flask.session['token_expires_at']):
-            print('La flask.session va être rafraichie')
+            APP.logger.debug('La flask.session va être rafraichie')
             response = refresh_credentials(flask.session['refresh_token'])
             if 'access_token' not in response.keys():
-                print("Impossible de rafraichir la flask.session à partir du refresh_token")
+                APP.logger.error("Impossible de rafraichir la flask.session à partir du refresh_token")
                 empty_session()
                 return False
             initSessionTokens(response)
-            print('Session rafraichie')
+            APP.logger.debug('Session rafraichie')
             return True
         empty_session()
         return False
@@ -96,16 +97,16 @@ def logout():
     return redirect(config.AUTHORITY_URL + config.LOGOUT_ENDPOINT + "?post_logout_redirect_uri=https://beta.tasmane.com")
 
 def initSessionTokens(response):
-    print("MSGRAPH auth response : ", response)
+    #print("MSGRAPH auth response : ", response)
     flask.session['access_token'] = response['access_token']
-    print("New access token : ", flask.session['access_token'])
+    APP.logger.debug("New access token : %s", flask.session['access_token'])
     #response['expires_in'] = 5
     d = datetime.datetime.now() + datetime.timedelta(seconds=response['expires_in'])
     expire_date = d.isoformat()
     flask.session['token_expires_at'] = expire_date
     if 'refresh_token' in response.keys(): #MS ne retourne pas de refresh_token si offline_access n'est pas intégré au scope
         flask.session['refresh_token'] = response['refresh_token']
-    print ("SESSION EXPIRES AT", flask.session['token_expires_at'], int(response['expires_in']))
+    APP.logger.debug("SESSION EXPIRES AT %s / expire in %s", flask.session['token_expires_at'], response['expires_in'])
 
 
 
@@ -128,7 +129,8 @@ def authorized():
         if group['id'] == config.ID_AUTHORIZED_GROUP:
             insideAuthorizedGroup = True
     if insideAuthorizedGroup == False:
-        flask.session={}
+        empty_session()
+        APP.logger.error("L'utilisateur n'appartient pas au groupe autorisé (groupe ID = %s)", config.ID_AUTHORIZED_GROUP)
         return "ERREUR : Vous n'apparatenez pas au groupe authorisé à accéder à cette fonction"
 
     endpoint = 'me'
@@ -180,8 +182,7 @@ def contact_ms_graph2mailchimpData():
     contacts = []
     offset = 0
     while (True) :
-        # https://docs.microsoft.com/fr-fr/graph/people-example
-        print("========= Appl contacts MSGRAPH =======", flask.session['mail'], flask.session['access_token'])
+        # DOCUMENTATION : https://docs.microsoft.com/fr-fr/graph/people-example
         endpoint = 'me/people?$top='+str(config.MSGRAPH_PAGE_SIZE)+'&select=displayName,scoredEmailAddresses&skip='+str(offset)
         headers = {'SdkVersion': 'sample-python-flask',
                    'x-client-SKU': 'sample-python-flask',
@@ -192,7 +193,7 @@ def contact_ms_graph2mailchimpData():
         if (len(graphdata["value"]) < config.MSGRAPH_PAGE_SIZE):
             break
         offset = offset + config.MSGRAPH_PAGE_SIZE 
-    print("=== REPONSE MS GRAPH ===", flask.session['mail'], flask.session['access_token'], len(contacts), contacts)
+    APP.logger.debug("=== REPONSE MS GRAPH === %s %s", flask.session['access_token'], str(len(contacts)))
 
     ########## STRUCTURER LES CONTACTS MICROSOFT AU FORMAT CIBLE
     res = []
@@ -218,7 +219,7 @@ def contact_ms_graph2mailchimpData():
                 societe = ".".join(d).upper()
             merge_fields = {'FNAME' : computed_fname, 'LNAME' : computed_lname, 'SOCIETE':societe}
             res.append({'displayName': contact['displayName'], 'email_address' : mail["address"], 'last_changed':'2000-01-01', 'status' : 'new', 'tags':[], 'merge_fields' : merge_fields})
-    print("RETOUR /contact_ms_graph2mailchimpData ", flask.session['mail'], res)
+    APP.logger.debug("RETOUR /contact_ms_graph2mailchimpData -> Nombre contacts : %s", str(len(res)))
     return jsonify(res)
 
 
@@ -234,12 +235,10 @@ def mailchimpListMembers():
           members = []
           offset = 0
           while (True) :
-            #FL = "email_address,status,merge_fields,last_changed"
             if (last_change == None):
                 response = client.lists.get_list_members_info(config.MAILCHIMP_LIST_ID, offset=offset, count=config.MAILCHIMP_PAGE_SIZE)
             else :
                 response = client.lists.get_list_members_info(config.MAILCHIMP_LIST_ID, offset=offset, count=config.MAILCHIMP_PAGE_SIZE, since_last_changed=last_change)
-            #print(response)
             #TODO : si code HTTP retour = 429, attendre une seconde et recommencer
             members.extend(response['members'])
             if (len(response['members']) < config.MAILCHIMP_PAGE_SIZE):
@@ -271,8 +270,7 @@ def mailchimpListMembers():
             data = json.loads(j.read())
         data['last_changed'] = d_format
         changed_members = appelsApiMembres(data["last_changed"])
-        print('Nombre de membres ayant changé depuis '+data['last_changed']+" : "+str(len(changed_members)))
-        print(str(changed_members))
+        APP.logger.debug('Nombre de membres ayant changé depuis %s : %s', data['last_changed'], str(len(changed_members)))
         for changed_member in changed_members :
             maj = False
             for i in range(len(data['members'])):
@@ -300,7 +298,6 @@ def mailchimpAddUpdate():
         return flask.redirect( url_for('login', redirect='/'))
 
     form = json.loads(request.form.getlist('values')[0])
-    print("mailchimpAddUpdate / form =",form)
     if 'email_address' in form.keys() :
         email_address =  form['email_address']
     else :
@@ -325,10 +322,8 @@ def mailchimpAddUpdate():
             d['status'] = form['status']
         if ('merge_fields' in form.keys()):
             d['merge_fields'] = form['merge_fields']
-        print(flask.session['mail'] + " ===> client.lists.set_list_member", config.MAILCHIMP_LIST_ID, h, d)
         response = client.lists.set_list_member(config.MAILCHIMP_LIST_ID, h, d)
         #TODO : si code HTTP retour = 429, attendre une seconde et recommencer
-        print(flask.session['mail'] + " ===> Reponse de Mailchimp", response)
 
 
         #MISE A JOUR DES TAGS
@@ -343,10 +338,8 @@ def mailchimpAddUpdate():
             else :
                 t.append(dict({"name": tag['name'], "status": "inactive"}))
 
-        print(flask.session['mail'], " ===> client.lists.update_list_member_tags", config.MAILCHIMP_LIST_ID, h, t)
         response_update_list_member_tags = client.lists.update_list_member_tags(config.MAILCHIMP_LIST_ID, h, {'tags':t})
         #TODO : si code HTTP retour = 429, attendre une seconde et recommencer
-        print(flask.session['mail'] + " Réponse de Mailchimp :", response_update_list_member_tags)
 
         incrementMappingDomaineSocietes(response["email_address"], response['merge_fields']['SOCIETE'], response['last_changed'])
         del(response['_links'])
@@ -355,15 +348,15 @@ def mailchimpAddUpdate():
         return jsonify(response)
 
     except ApiClientError as error:
-        print("Error: {}".format(error.text))
+        APP.logger.error("Error: {}".format(error.text))
         error_dic = json.loads(error.text)
         return jsonify(error.text), error_dic["status"]
     return Response(jsonify("Erreur"), 500)
 
 
-def list_prod_active(id_liste_active):
+def list_prod_active():
     is_prod = False
-    if id_liste_active == config.MAILCHIMP_LIST_ID_PRODUCTION:
+    if config.MAILCHIMP_LIST_ID == config.MAILCHIMP_LIST_ID_PRODUCTION:
         is_prod = True
     return is_prod
 
@@ -376,7 +369,7 @@ def mailchimp():
                                     list_id_api=response['id'],
                                     list_id_web=response['web_id'], 
                                     list_name=response['name'], 
-                                    list_prod_active=list_prod_active(response['id']),
+                                    list_prod_active=list_prod_active(),
                                     loadUrlendpoint = "/mailchimpData",
                                     titre = "Liste des contacts Mailchimp",
                                     showDiplayNameColumn = False,
@@ -469,7 +462,7 @@ def contact_ms_graph2mailchimp():
                                     list_id_api=response['id'],
                                     list_id_web=response['web_id'],
                                     list_name=response['name'],
-                                    list_prod_active=list_prod_active(response['id']),
+                                    list_prod_active=list_prod_active(),
                                     loadUrlendpoint = "/contact_ms_graph2mailchimpData",
                                     titre = "Ajout sur Mailchimp des contacts avec lesquels j'ai des intéractions par email",
                                     showDiplayNameColumn = True,
@@ -498,9 +491,9 @@ def mailchimpLists():
           })
           #TODO : si code HTTP retour = 429, attendre une seconde et recommencer
           response = client.lists.get_list(config.MAILCHIMP_LIST_ID)
-          print(flask.session['mail'] + '=> Rafraichissement cache liste mailchimp:',response)
+          APP.logger.debug('Rafraichissement cache listes mailchimp : %s listes', str(len(response)))
         except ApiClientError as error:
-          print("Error: {}".format(error.text))
+          APP.logger.error("Error: {}".format(error.text))
           return False
 
         d_format = datetime.datetime.now().isoformat()
@@ -543,7 +536,7 @@ def getTagList():
 
             response = client.lists.tag_search(config.MAILCHIMP_LIST_ID, count=500)
 
-            print('Rafraichissement cache tags mailchimp:',response)
+            APP.logger.debug('Rafraichissement cache tags mailchimp : %s tags', str(len(response)))
         except ApiClientError as error:
             print("Error: {}".format(error.text))
             return False
@@ -568,16 +561,13 @@ def mailchimpMembersTags():
         response = getTagList() 
         return jsonify(response)
     except ApiClientError as error:
-        print("Error: {}".format(error.text))
+        APP.logger.error("Error: {}".format(error.text))
         return False
 
 
 @MSGRAPH.tokengetter
 def get_token():
     """Called by flask_oauthlib.client to retrieve current access token."""
-    #return (flask.session.get('access_token'), '')
-    if 'mail' in flask.session.keys():
-        print("===== get_token =====", flask.session['mail'], flask.session['access_token'])
     return (flask.session['access_token'], '')
 
 
@@ -651,7 +641,6 @@ def tag_search_with_http_info_with_page_param(self, list_id, **kwargs):  # noqa:
     # Authentication setting
     auth_settings = ['basicAuth']  # noqa: E501
 
-    print("QUERYP", query_params)
     return self.api_client.call_api(
         '/lists/{list_id}/tag-search', 'GET',
         path_params,
@@ -672,7 +661,34 @@ if __name__ == '__main__':
     import logging
     import sys
 
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    from flask import has_request_context, request
+    from flask.logging import default_handler
+
+    class RequestFormatter(logging.Formatter):
+        def format(self, record):
+            if has_request_context():
+                record.url = request.url
+                record.remote_addr = request.remote_addr
+            else:
+                record.url = None
+                record.remote_addr = None
+
+            if 'mail' in flask.session.keys():
+                record.mail = flask.session['mail']
+            else :
+                record.mail = None
+            if config.MAILCHIMP_LIST_ID :
+                record.mailchimpActiveList = config.MAILCHIMP_LIST_ID
+            else:
+                record.mailchimpActiveList = None
+
+            return super().format(record)
+
+    formatter = RequestFormatter(
+        '%(asctime)s user=%(mail)s mailchimpActiveList=%(mailchimpActiveList)s %(remote_addr)s requested %(url)s\n'
+        '      > %(levelname)s in %(module)s: %(message)s'
+    )
+    default_handler.setFormatter(formatter)
 
     werkzeug_log = logging.getLogger('werkzeug')
     werkzeug_log.setLevel(logging.ERROR)
@@ -685,6 +701,6 @@ if __name__ == '__main__':
     handler.setFormatter(formatter)
     root.addHandler(handler)
 
-    APP.run(host="0.0.0.0", port=443, debug=True, ssl_context=(config.CERTIF_FULLCHAIN_PATH, config.CERTIF_PRIVKEY_PATH))
+    APP.run(host="0.0.0.0", port=443, debug=not(list_prod_active()), ssl_context=(config.CERTIF_FULLCHAIN_PATH, config.CERTIF_PRIVKEY_PATH))
 
 
