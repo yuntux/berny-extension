@@ -180,6 +180,7 @@ def contact_ms_graph2mailchimpData():
     contacts = []
     offset = 0
     while (True) :
+        # https://docs.microsoft.com/fr-fr/graph/people-example
         print("========= Appl contacts MSGRAPH =======", flask.session['mail'], flask.session['access_token'])
         endpoint = 'me/people?$top='+str(config.MSGRAPH_PAGE_SIZE)+'&select=displayName,scoredEmailAddresses&skip='+str(offset)
         headers = {'SdkVersion': 'sample-python-flask',
@@ -534,7 +535,14 @@ def getTagList():
                 "api_key": config.MAILCHIMP_API_KEY,
                 "server": config.MAILCHIMP_SERVER_PREFIX
             })
-            response = client.lists.tag_search(config.MAILCHIMP_LIST_ID)
+
+            #surcharger la méthode tag_search afin de permettre le passage de count et de remonter la totalité des TAGS mailchimp (qui ne remonte que 10 tags sans cela)
+            import types
+            funcType = types.MethodType
+            client.lists.tag_search_with_http_info = funcType(tag_search_with_http_info_with_page_param, client.lists)
+
+            response = client.lists.tag_search(config.MAILCHIMP_LIST_ID, count=500)
+
             print('Rafraichissement cache tags mailchimp:',response)
         except ApiClientError as error:
             print("Error: {}".format(error.text))
@@ -548,7 +556,6 @@ def getTagList():
         data = json.loads(j.read())
 
     return data['tags']
-
 
 
 
@@ -572,6 +579,94 @@ def get_token():
     if 'mail' in flask.session.keys():
         print("===== get_token =====", flask.session['mail'], flask.session['access_token'])
     return (flask.session['access_token'], '')
+
+
+
+def tag_search_with_http_info_with_page_param(self, list_id, **kwargs):  # noqa: E501
+    import six
+    """Search for tags on a list by name.  # noqa: E501
+    Search for tags on a list by name. If no name is provided, will return all tags on the list.  # noqa: E501
+    This method makes a synchronous HTTP request by default. To make an
+    asynchronous HTTP request, please pass async_req=True
+    >>> thread = api.tag_search_with_http_info(list_id, async_req=True)
+    >>> result = thread.get()
+    :param async_req bool
+    :param str list_id: The unique ID for the list. (required)
+    :param str name: The search query used to filter tags.  The search query will be compared to each tag as a prefix, so all tags that have a name starting with this field will be returned.
+    :return: TagSearchResults
+             If the method is called asynchronously,
+             returns the request thread.
+    """
+
+    all_params = ['list_id', 'name']  # noqa: E501
+    all_params.append('async_req')
+    all_params.append('_return_http_data_only')
+    all_params.append('_preload_content')
+    all_params.append('_request_timeout')
+    all_params.append('offset')#ADU
+    all_params.append('count')#ADU
+
+    params = locals()
+    for key, val in six.iteritems(params['kwargs']):
+        if key not in all_params:
+            raise TypeError(
+                "Got an unexpected keyword argument '%s'"
+                " to method tag_search" % key
+            )
+        params[key] = val
+    del params['kwargs']
+    # verify the required parameter 'list_id' is set
+    if ('list_id' not in params or
+            params['list_id'] is None):
+        raise ValueError("Missing the required parameter `list_id` when calling ``")  # noqa: E501
+
+    collection_formats = {}
+
+    path_params = {}
+    if 'list_id' in params:
+        path_params['list_id'] = params['list_id']  # noqa: E501
+
+    query_params = []
+    if 'name' in params:
+        query_params.append(('name', params['name']))  # noqa: E501
+    if 'count' in params: #ADU
+        query_params.append(('count', params['count']))  #ADU
+    if 'offset' in params: #ADU
+        query_params.append(('offset', params['offset']))  #ADU
+
+    header_params = {}
+
+    form_params = []
+    local_var_files = {}
+
+    body_params = None
+    # HTTP header `Accept`
+    header_params['Accept'] = self.api_client.select_header_accept(
+        ['application/json', 'application/problem+json'])  # noqa: E501
+
+    # HTTP header `Content-Type`
+    header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
+        ['application/json'])  # noqa: E501
+
+    # Authentication setting
+    auth_settings = ['basicAuth']  # noqa: E501
+
+    print("QUERYP", query_params)
+    return self.api_client.call_api(
+        '/lists/{list_id}/tag-search', 'GET',
+        path_params,
+        query_params,
+        header_params,
+        body=body_params,
+        post_params=form_params,
+        files=local_var_files,
+        response_type='TagSearchResults',  # noqa: E501
+        auth_settings=auth_settings,
+        async_req=params.get('async_req'),
+        _return_http_data_only=params.get('_return_http_data_only'),
+        _preload_content=params.get('_preload_content', True),
+        _request_timeout=params.get('_request_timeout'),
+        collection_formats=collection_formats)
 
 if __name__ == '__main__':
     import logging
