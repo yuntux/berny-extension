@@ -1,0 +1,54 @@
+############################################################################
+#           DONNEES MICROSOFT GRAPH
+############################################################################
+CLIENT_ID = 
+CLIENT_SECRET = 
+REDIRECT_PATH = '/login/authorized' 
+REDIRECT_URI = 'https://example.com'+REDIRECT_PATH
+
+# AUTHORITY_URL ending determines type of account that can be authenticated:
+# /organizations = organizational accounts only
+# /consumers = MSAs only (Microsoft Accounts - Live.com, Hotmail.com, etc.)
+# /common = allow both types of accounts
+AUTHORITY_URL = 'https://login.microsoftonline.com/organizations'
+
+AUTH_ENDPOINT = '/oauth2/v2.0/authorize'
+TOKEN_ENDPOINT = '/oauth2/v2.0/token'
+LOGOUT_ENDPOINT = '/oauth2/v2.0/logout'
+
+RESOURCE = 'https://graph.microsoft.com/'
+API_VERSION = 'v1.0'
+SCOPES = ['User.Read','People.Read', 'offline_access'] # Add other scopes/permissions as needed.
+    #MS ne retourne pas de refresh_token si offline_access n'est pas intégré au scope
+MSGRAPH_PAGE_SIZE = 2500
+
+
+############################################################################
+#           DONNEES MAILCHIMP
+############################################################################
+MAILCHIMP_API_KEY = 
+MAILCHIMP_SERVER_PREFIX = "us3"
+MAILCHIMP_LIST_ID_PRODUCTION =
+MAILCHIMP_LIST_ID_DEMONSTRATION = 
+MAILCHIMP_LIST_ID = MAILCHIMP_LIST_ID_DEMONSTRATION
+MAILCHIMP_PAGE_SIZE = 500
+
+
+DOSSIER_CACHE = "/dir/cache/directory"
+FICHIER_MAPPING_DOMAINE_SOCIETES = DOSSIER_CACHE+"mappingDomaineSocietes_"+MAILCHIMP_LIST_ID+".json"
+FICHIER_CACHE_MEMBRES_MAILCHIMP = DOSSIER_CACHE+"cacheMembresMailchimp_"+MAILCHIMP_LIST_ID+".json"
+FICHIER_CACHE_TAGS_MAILCHIMP = DOSSIER_CACHE+"cacheTagsMailchimp_"+MAILCHIMP_LIST_ID+".json"
+FICHIER_CACHE_LIST_MAILCHIMP = DOSSIER_CACHE+"cacheListMailchimp_"+MAILCHIMP_LIST_ID+".json"
+CACHE_MEMBRES_MAILCHIMP_DELAI_MINUTE_LAST_CHANGED = -15 # le code demande au serveur mailchimp tous les membres de la liste QUI ONT CHANGÉS DANS LES X DERNIÈRES MINUTES
+CACHE_LIST_MAILCHIMP_DELAI_MINUTE = -720 #si le cache LIST a plus de Y minutes, alors il est complètement rechargé
+CACHE_TAGS_MAILCHIMP_DELAI_MINUTE = -15 #si le cache TAGS a plus de Z minutes, alors il est complètement rechargé
+
+############################################################################
+#           DONNEES INTERNES FLASK APP
+############################################################################
+APP_SECRET_KEY =
+CERTIF_FULLCHAIN_PATH = '/etc/letsencrypt/live/example.com/fullchain.pem'
+CERTIF_PRIVKEY_PATH = '/etc/letsencrypt/live/example.com/privkey.pem'
+
+DOMAIN_EXCLUSION = "@example.com"
+ID_AUTHORIZED_GROUP = "" # uuid of the office groupe
