@@ -211,18 +211,18 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
                 dataField:"email_address", 
 		allowHeaderFiltering: false,
 	    },{
-                caption: "displayName (Outlook)",
-                dataField:"displayName", 
-		visible:showDiplayNameColumn, 
-		allowEditing: false,
-		allowHeaderFiltering: false,
-            },{
                 caption: "Prénom",
                 dataField:"merge_fields.FNAME", 
 		allowHeaderFiltering: false,
             },{
                 caption: "Nom",
                 dataField:"merge_fields.LNAME", 
+		allowHeaderFiltering: false,
+            },{
+                caption: "displayName (Outlook)",
+                dataField:"displayName", 
+		visible:showDiplayNameColumn, 
+		allowEditing: false,
 		allowHeaderFiltering: false,
             },{
                 caption: "Société",

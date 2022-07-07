@@ -234,12 +234,14 @@ def mailchimpListMembers():
           
           members = []
           offset = 0
+          fl=["members.email_address","members.full_name","members.id","members.contact_id","members.last_changed","members.list_id","members.merge_fields","members.status","members.tags","members.unique_email_id","members.vip","members.web_id"]
           while (True) :
             if (last_change == None):
-                response = client.lists.get_list_members_info(config.MAILCHIMP_LIST_ID, offset=offset, count=config.MAILCHIMP_PAGE_SIZE)
+                response = client.lists.get_list_members_info(config.MAILCHIMP_LIST_ID, offset=offset, count=config.MAILCHIMP_PAGE_SIZE, fields=fl)
             else :
-                response = client.lists.get_list_members_info(config.MAILCHIMP_LIST_ID, offset=offset, count=config.MAILCHIMP_PAGE_SIZE, since_last_changed=last_change)
+                response = client.lists.get_list_members_info(config.MAILCHIMP_LIST_ID, offset=offset, count=config.MAILCHIMP_PAGE_SIZE, fields=fl, since_last_changed=last_change)
             #TODO : si code HTTP retour = 429, attendre une seconde et recommencer
+            print("REP", len(response),response)
             members.extend(response['members'])
             if (len(response['members']) < config.MAILCHIMP_PAGE_SIZE):
                 break
@@ -248,7 +250,6 @@ def mailchimpListMembers():
           for member in members:
               tags = [d['name'] for d in member['tags']]
               member["tags"] = sorted(tags)
-              del member['_links']
           return members
           
         except ApiClientError as error:
