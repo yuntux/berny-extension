@@ -126,11 +126,11 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
 		mode: "standard" //"infinite"
 	},
         paging: {
-             pageSize: 1000,
+             pageSize: 100,
         },
         pager: {
            visible: true,
-	   //allowedPageSizes: [5, 10, 'all'],
+	   allowedPageSizes: [10, 100, 1000], //, 10000, 'all'
            showPageSizeSelector: true,
            showInfo: true,
           showNavigationButtons: true,
