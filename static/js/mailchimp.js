@@ -79,6 +79,16 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
 			options.newData.deleted_tags = deleted_tags;
 		}
 
+		if (options.newData.tags) {
+			if (options.oldData.tags)
+				oldTags = options.oldData.tags;
+			else
+				oldTags = [];
+			newTags = options.newData.tags;
+			let added_tags = newTags.filter(x => !oldTags.includes(x));
+
+			options.newData.added_tags = added_tags;
+		}
 		/*
 		console.log("========= AFTER oldData");
 		console.log(options.oldData);

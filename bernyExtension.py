@@ -343,8 +343,8 @@ def mailchimpAddUpdate(type_action, email_address, form):
 
         #MISE A JOUR DES TAGS
         t = []
-        if ('tags' in form.keys()):
-            for tag in form['tags']:
+        if ('added_tags' in form.keys()):
+            for tag in form['added_tags']:
                 t.append(dict({"name": tag, "status": "active"}))
         if ('deleted_tags' in form.keys()):
             for tag in form['deleted_tags']:
