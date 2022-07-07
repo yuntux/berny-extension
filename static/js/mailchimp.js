@@ -46,10 +46,11 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
 	    },
 	    refreshMode:"reshape",
         },
-	/*
+	
 	onRowUpdating: function (options) {  
 		//Mailchimp a besoin de tous les champs d'une adresse pour l'enregistrer : il est donc nécessaire de toujours retourner toutes les valeurs, et pas que celles qui ont été modifiées.
 		// https://supportcenter.devexpress.com/ticket/details/t216562/dxdatagrid-it-is-impossible-to-pass-all-item-options-to-the-customstore-update-method
+		/*
 		console.log("========= oldData");
 		console.log(options.oldData);
 		console.log(options.oldData.tags);
@@ -57,24 +58,37 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
 		console.log(options.newData.tags);
 		console.log(options.newData);
 		console.log(options.newData.tags);
+		*/
 
 
-		if (options.newData.tags === undefined) {
+		/*if (options.newData.tags === undefined) { // Pour renvoyer tous les champs, y compris ceux qui n'ont pas modifiés par l'utiisateur (utile pour les adresse postales dans Mailchimp)
        			var new_tags = JSON.parse(JSON.stringify(options.oldData.tags));
 		} else {
        			var new_tags = JSON.parse(JSON.stringify(options.newData.tags));
 		}
 		$.extend(true, options.newData, $.extend(true, {}, options.oldData, options.newData));
-		options.newData.tags = new_tags;
+		*/
+		if (options.oldData.tags) {
+			if (options.newData.tags)
+				newTags = options.newData.tags;
+			else
+				newTags = [];
+			oldTags = options.oldData.tags;
+			let deleted_tags = oldTags.filter(x => !newTags.includes(x));
 
+			options.newData.deleted_tags = deleted_tags;
+		}
+
+		/*
 		console.log("========= AFTER oldData");
 		console.log(options.oldData);
 		console.log(options.oldData.tags);
 		console.log("========= AFTER newData");
 		console.log(options.newData);
 		console.log(options.newData.tags);
+		*/
 	},
-	*/  	
+	  	
 	repaintChangesOnly: true,
         columnAutoWidth: true,
         allowColumnReordering: true,

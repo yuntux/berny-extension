@@ -298,18 +298,17 @@ def mailchimpAdd():
         return flask.redirect( url_for('login', redirect='/'))
     form = json.loads(request.form.getlist('values')[0])
     email_address =  form['email_address']
-    return mailchimpAddUpdate("add", email_address)
+    return mailchimpAddUpdate("add", email_address, form)
 
 @APP.route('/mailchimpUpdate', methods=['PUT'])
 def mailchimpUpdate():
     if is_session_valid()==False:
         return flask.redirect( url_for('login', redirect='/'))
-    email_address = request.form.getlist('key')[0]
-    return mailchimpAddUpdate("update", email_address)
-
-def mailchimpAddUpdate(type_action, email_address):
     form = json.loads(request.form.getlist('values')[0])
+    email_address = request.form.getlist('key')[0]
+    return mailchimpAddUpdate("update", email_address, form)
 
+def mailchimpAddUpdate(type_action, email_address, form):
     try:
         client = MailchimpMarketing.Client()
         client.set_config({
@@ -344,18 +343,17 @@ def mailchimpAddUpdate(type_action, email_address):
 
         #MISE A JOUR DES TAGS
         t = []
-        if ('tags' not in form.keys()):
-            form['tags'] = []
-        response_tags = getTagList()
+        if ('tags' in form.keys()):
+            for tag in form['tags']:
+                t.append(dict({"name": tag, "status": "active"}))
+        if ('deleted_tags' in form.keys()):
+            for tag in form['deleted_tags']:
+                t.append(dict({"name": tag, "status": "inactive"}))
 
-        for tag in response_tags:
-            if tag['name'] in form['tags']:
-                t.append(dict({"name": tag['name'], "status": "active"}))
-            else :
-                t.append(dict({"name": tag['name'], "status": "inactive"}))
-
-        response_update_list_member_tags = client.lists.update_list_member_tags(config.MAILCHIMP_LIST_ID, h, {'tags':t})
-        #TODO : si code HTTP retour = 429, attendre une seconde et recommencer
+        APP.logger.debug("tags : %s", t)
+        if (len(t) > 0):
+            response_update_list_member_tags = client.lists.update_list_member_tags(config.MAILCHIMP_LIST_ID, h, {'tags':t})
+            #TODO : si code HTTP retour = 429, attendre une seconde et recommencer
 
         incrementMappingDomaineSocietes(response["email_address"], response['merge_fields']['SOCIETE'], response['last_changed'])
         del(response['_links'])
