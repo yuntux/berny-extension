@@ -241,7 +241,6 @@ def mailchimpListMembers():
             else :
                 response = client.lists.get_list_members_info(config.MAILCHIMP_LIST_ID, offset=offset, count=config.MAILCHIMP_PAGE_SIZE, fields=fl, since_last_changed=last_change)
             #TODO : si code HTTP retour = 429, attendre une seconde et recommencer
-            print("REP", len(response),response)
             members.extend(response['members'])
             if (len(response['members']) < config.MAILCHIMP_PAGE_SIZE):
                 break
@@ -293,16 +292,23 @@ def mailchimpListMembers():
 
     return data['members']
 
-@APP.route('/mailchimpAddUpdate', methods=['POST','PUT'])
-def mailchimpAddUpdate():
+@APP.route('/mailchimpAdd', methods=['POST'])
+def mailchimpAdd():
     if is_session_valid()==False:
         return flask.redirect( url_for('login', redirect='/'))
-
     form = json.loads(request.form.getlist('values')[0])
-    if 'email_address' in form.keys() :
-        email_address =  form['email_address']
-    else :
-        email_address = request.form.getlist('key')[0]
+    email_address =  form['email_address']
+    return mailchimpAddUpdate("add", email_address)
+
+@APP.route('/mailchimpUpdate', methods=['PUT'])
+def mailchimpUpdate():
+    if is_session_valid()==False:
+        return flask.redirect( url_for('login', redirect='/'))
+    email_address = request.form.getlist('key')[0]
+    return mailchimpAddUpdate("update", email_address)
+
+def mailchimpAddUpdate(type_action, email_address):
+    form = json.loads(request.form.getlist('values')[0])
 
     try:
         client = MailchimpMarketing.Client()
@@ -317,12 +323,21 @@ def mailchimpAddUpdate():
         # CREATION ou MISE A JOUR DU MEMBRE
         d = dict({"email_address": email_address})
         # Liste des statuts que peut prendre un contact mailchimp : https://mailchimp.com/fr/help/about-your-contacts/
-        if ('status' not in form.keys()) or (form['status'] in ["new", ""]):
-            d['status'] = "subscribed"
+        if ('status' in ['', 'new']):
+            s = form['status']
+            if s in ['', 'new']:
+                d['status'] = "subscribed"
+            else :
+                d['status'] = s
         else :
-            d['status'] = form['status']
+            if type_action == 'add':
+                d['status'] = "subscribed"
+
+
         if ('merge_fields' in form.keys()):
             d['merge_fields'] = form['merge_fields']
+
+        APP.logger.debug("atttributs : %s", d)
         response = client.lists.set_list_member(config.MAILCHIMP_LIST_ID, h, d)
         #TODO : si code HTTP retour = 429, attendre une seconde et recommencer
 

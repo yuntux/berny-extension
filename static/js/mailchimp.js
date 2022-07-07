@@ -31,8 +31,8 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
 	dataSource: DevExpress.data.AspNet.createStore({
             key: "email_address",
             loadUrl: url +  loadUrlendpoint,
-	    insertUrl: url + "/mailchimpAddUpdate",
-            updateUrl: url + "/mailchimpAddUpdate",
+	    insertUrl: url + "/mailchimpAdd",
+            updateUrl: url + "/mailchimpUpdate",
             /*deleteUrl: url + "/DeleteOrder",*/
         }),
 	editing: {
