@@ -357,7 +357,9 @@ def mailchimpAddUpdate(type_action, email_address, form):
 
         incrementMappingDomaineSocietes(response["email_address"], response['merge_fields']['SOCIETE'], response['last_changed'])
         del(response['_links'])
-        response["tags"] = sorted(form['tags'])
+        response["tags"] = []
+        if ('tags' in form.keys()):
+            response["tags"] = sorted(form['tags'])
 
         return jsonify(response)
 
