@@ -72,7 +72,7 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
 			if (options.newData.tags)
 				newTags = options.newData.tags;
 			else
-				newTags = [];
+				newTags = options.oldData.tags;
 			oldTags = options.oldData.tags;
 			let deleted_tags = oldTags.filter(x => !newTags.includes(x));
 
