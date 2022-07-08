@@ -452,7 +452,7 @@ def getMappingDomaineSocietes(address):
 def incrementMappingDomaineSocietes(address, societe, last_changed):
     lock_incrementMappingDomaineSocietes = Lock() 
 
-    with incrementMappingDomaineSocietes:
+    with lock_incrementMappingDomaineSocietes:
         chemin_fichier = config.FICHIER_MAPPING_DOMAINE_SOCIETES
         if not os.path.exists(chemin_fichier):
             return False
