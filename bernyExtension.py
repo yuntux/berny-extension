@@ -19,6 +19,7 @@ import json
 import hashlib
 import requests
 
+from threading import Lock
 import os.path
 
 
@@ -255,42 +256,44 @@ def mailchimpListMembers():
           print("Error: {}".format(error.text))
           return False
 
+    lock_cache_members = Lock() 
+    with lock_cache_members:
+        chemin_fichier = config.FICHIER_CACHE_MEMBRES_MAILCHIMP
+        d = datetime.datetime.now() + datetime.timedelta(minutes=config.CACHE_MEMBRES_MAILCHIMP_DELAI_MINUTE_LAST_CHANGED)
+        d_format = d.isoformat()
+        if not os.path.exists(chemin_fichier):
+            data = {'last_changed' : d_format}
+            data['members'] = appelsApiMembres()
+            with open(chemin_fichier, 'w') as f:
+                json.dump(data, f, indent=4)
 
-    chemin_fichier = config.FICHIER_CACHE_MEMBRES_MAILCHIMP
-    d = datetime.datetime.now() + datetime.timedelta(minutes=config.CACHE_MEMBRES_MAILCHIMP_DELAI_MINUTE_LAST_CHANGED)
-    d_format = d.isoformat()
-    if not os.path.exists(chemin_fichier):
-        data = {'last_changed' : d_format}
-        data['members'] = appelsApiMembres()
-        with open(chemin_fichier, 'w') as f:
-            json.dump(data, f, indent=4)
+        else :
+            with open(chemin_fichier, 'r') as j:
+                data = json.loads(j.read())
+            data['last_changed'] = d_format
+            changed_members = appelsApiMembres(data["last_changed"])
+            APP.logger.debug('Nombre de membres ayant changé depuis %s : %s', data['last_changed'], str(len(changed_members)))
+            for changed_member in changed_members :
+                maj = False
+                for i in range(len(data['members'])):
+                    if changed_member['email_address'] == data['members'][i]['email_address']:
+                        #Mise à jour des membres déjà existants dans le cache
+                        data['members'][i] = changed_member
+                        maj = True
+                if maj == False:
+                    #Ajout des nouveaux membres
+                    data['members'].append(changed_member)
 
-    else :
-        with open(chemin_fichier, 'r') as j:
-            data = json.loads(j.read())
-        data['last_changed'] = d_format
-        changed_members = appelsApiMembres(data["last_changed"])
-        APP.logger.debug('Nombre de membres ayant changé depuis %s : %s', data['last_changed'], str(len(changed_members)))
-        for changed_member in changed_members :
-            maj = False
-            for i in range(len(data['members'])):
-                if changed_member['email_address'] == data['members'][i]['email_address']:
-                    #Mise à jour des membres déjà existants dans le cache
-                    data['members'][i] = changed_member
-                    maj = True
-            if maj == False:
-                #Ajout des nouveaux membres
-                data['members'].append(changed_member)
+            #TODO : la suppression définive de fiches sur Mailchimp ne remontent pas par API et restent dans le cache.
+                #il faut supprimer le cache
+                #la bonne pratique est de ne jamais supprimer une fiche définitivement mais d'archiver le contact... mais l'API ne les retourne plus après archivage
+                #on peut aussi simplement le passer au statut unsubscribed sur l'IHM Mailchimp... mais dans ce cas il continue à nous être facturé
 
-        #TODO : la suppression définive de fiches sur Mailchimp ne remontent pas par API et restent dans le cache.
-            #il faut supprimer le cache
-            #la bonne pratique est de ne jamais supprimer une fiche définitivement mais d'archiver le contact... mais l'API ne les retourne plus après archivage
-            #on peut aussi simplement le passer au statut unsubscribed sur l'IHM Mailchimp... mais dans ce cas il continue à nous être facturé
+            if len(changed_members) > 0:
+                with open(chemin_fichier, 'w') as f:
+                    json.dump(data, f, indent=4)
 
-        with open(chemin_fichier, 'w') as f:
-            json.dump(data, f, indent=4)
-
-    return data['members']
+        return data['members']
 
 @APP.route('/mailchimpAdd', methods=['POST'])
 def mailchimpAdd():
@@ -447,25 +450,28 @@ def getMappingDomaineSocietes(address):
         return ""
 
 def incrementMappingDomaineSocietes(address, societe, last_changed):
-    chemin_fichier = config.FICHIER_MAPPING_DOMAINE_SOCIETES
-    if not os.path.exists(chemin_fichier):
-        return False
-    if (len(societe) == 0):
-        return False
-    domain = address.split("@")[1]
-    with open(chemin_fichier, 'r') as j:
-        mapping = json.loads(j.read())
-    if domain not in mapping.keys():
-        mapping[domain] = {}
-    if societe not in mapping[domain].keys():
-        d = {'societe' : societe, 'member_last_change' : last_changed}
-        mapping[domain][societe] = d
-    else :
-        if (mapping[domain][societe]['member_last_change'] < last_changed):
-            mapping[domain][societe]['member_last_change'] = last_changed
+    lock_incrementMappingDomaineSocietes = Lock() 
 
-    with open(chemin_fichier, 'w') as f:
-        json.dump(mapping, f, indent=4)
+    with incrementMappingDomaineSocietes:
+        chemin_fichier = config.FICHIER_MAPPING_DOMAINE_SOCIETES
+        if not os.path.exists(chemin_fichier):
+            return False
+        if (len(societe) == 0):
+            return False
+        domain = address.split("@")[1]
+        with open(chemin_fichier, 'r') as j:
+            mapping = json.loads(j.read())
+        if domain not in mapping.keys():
+            mapping[domain] = {}
+        if societe not in mapping[domain].keys():
+            d = {'societe' : societe, 'member_last_change' : last_changed}
+            mapping[domain][societe] = d
+        else :
+            if (mapping[domain][societe]['member_last_change'] < last_changed):
+                mapping[domain][societe]['member_last_change'] = last_changed
+
+        with open(chemin_fichier, 'w') as f:
+            json.dump(mapping, f, indent=4)
 
     
 
