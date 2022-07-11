@@ -227,8 +227,6 @@ def contact_ms_graph2mailchimpData():
 
 def mailchimpListMembers():
     def appelsApiMembres(last_change=None):
-        last_change_utc = datetime.datetime.fromisoformat(last_change).astimezone(pytz.utc).isoformat()
-        #print(last_change, last_change_utc)
         try:
           client = MailchimpMarketing.Client()
           client.set_config({
@@ -243,6 +241,8 @@ def mailchimpListMembers():
             if (last_change == None):
                 response = client.lists.get_list_members_info(config.MAILCHIMP_LIST_ID, offset=offset, count=config.MAILCHIMP_PAGE_SIZE, fields=fl)
             else :
+                last_change_utc = datetime.datetime.fromisoformat(last_change).astimezone(pytz.utc).isoformat()
+                #print(last_change, last_change_utc)
                 response = client.lists.get_list_members_info(config.MAILCHIMP_LIST_ID, offset=offset, count=config.MAILCHIMP_PAGE_SIZE, fields=fl, since_last_changed=last_change_utc)
             #TODO : si code HTTP retour = 429, attendre une seconde et recommencer
             members.extend(response['members'])
