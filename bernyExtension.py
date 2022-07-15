@@ -575,6 +575,50 @@ def getTagList():
     return data['tags']
 
 
+@APP.route('/mailchimpArchiveMember', methods=["DELETE"])
+def mailchimpArchiveMember():
+    if is_session_valid()==False:
+        return flask.redirect( url_for('login', redirect='/mailchimpMembersTags'))
+    
+    try:
+        client = MailchimpMarketing.Client()
+        client.set_config({
+            "api_key": config.MAILCHIMP_API_KEY,
+            "server": config.MAILCHIMP_SERVER_PREFIX
+        })
+
+        email_address = request.form.getlist('key')[0]
+        response = client.lists.delete_list_member(config.MAILCHIMP_LIST_ID, email_address)
+        mailchimpArchiveMemberInCache(email_address)
+        return "Deleted"
+    except ApiClientError as error:
+        print("Error: {}".format(error.text))
+        return False
+
+def mailchimpArchiveMemberInCache(email_address):
+    chemin_fichier = config.FICHIER_CACHE_MEMBRES_MAILCHIMP
+    d = datetime.datetime.now() + datetime.timedelta(minutes=config.CACHE_MEMBRES_MAILCHIMP_DELAI_MINUTE_LAST_CHANGED)
+    d_format = d.isoformat()
+    if not os.path.exists(chemin_fichier):
+        pass
+    else :
+        with open(chemin_fichier, 'r') as j:
+            data = json.loads(j.read())
+        data['last_changed'] = d_format
+        for i in range(len(data['members'])):
+            if data['members'][i]['email_address'] == email_address :
+                del data['members'][i]
+                break
+        #TODO : la suppression définive de fiches sur Mailchimp ne remontent pas par API et restent dans le cache.
+            #il faut supprimer le cache
+            #la bonne pratique est de ne jamais supprimer une fiche définitivement mais d'archiver le contact... mais l'API ne les retourne plus après archivage
+            #on peut aussi simplement le passer au statut unsubscribed sur l'IHM Mailchimp... mais dans ce cas il continue à nous être facturé
+
+        lock_cache_members = Lock() 
+        with lock_cache_members:
+            with open(chemin_fichier, 'w') as f:
+                json.dump(data, f, indent=4)
+
 
 @APP.route('/mailchimpMembersTags')
 def mailchimpMembersTags():

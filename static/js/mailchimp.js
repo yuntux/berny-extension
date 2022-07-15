@@ -33,12 +33,20 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
             loadUrl: url +  loadUrlendpoint,
 	    insertUrl: url + "/mailchimpAdd",
             updateUrl: url + "/mailchimpUpdate",
-            /*deleteUrl: url + "/DeleteOrder",*/
+            deleteUrl: url + "/mailchimpArchiveMember",
         }),
 	editing: {
             mode: "popup",
             allowAdding: true,
-	    allowDeleting: false,
+	    allowDeleting : function (e){
+		if (e.row.data['status'] == "new")
+		    return false;
+		else
+		    if (showDiplayNameColumn == true)
+			return true;
+		    else
+			return false;
+	    },
 	    allowUpdating: function (e){
 		if (e.row.data['status'] == "new")
 		    return false;
