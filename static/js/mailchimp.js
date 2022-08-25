@@ -39,7 +39,7 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
             mode: "popup",
             allowAdding: true,
 	    allowDeleting : function (e){
-		if (e.row.data['status'] == "new")
+		if (e.row.data['status'] != "subscribed")
 		    return false;
 		else
 		    if (showDiplayNameColumn == true)
