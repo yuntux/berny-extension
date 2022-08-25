@@ -178,7 +178,7 @@ def contact_ms_graph2mailchimpData():
     
     ########## RECUPERER LES CONTACTS MAILCHIMP
     members = mailchimpListMembers()
-    mailchimpMembersMails = [d['email_address'] for d in members]
+    mailchimpMembersMails = [d['email_address'].lower() for d in members]
 
     ########## RECUPERER LES CONTACTS MS GRAPH
     contacts = []
@@ -199,11 +199,16 @@ def contact_ms_graph2mailchimpData():
 
     ########## STRUCTURER LES CONTACTS MICROSOFT AU FORMAT CIBLE
     res = []
+    compteur_deja_dans_mailchimp = 0
+    compteur_email_ms_graph = 0
     for contact in contacts:
         for mail in contact["scoredEmailAddresses"]:
             if config.DOMAIN_EXCLUSION in mail["address"] :
                 continue
-            if mail["address"] in mailchimpMembersMails : #ne retourner que les contacts Outlook qui ne sont pas encore dans mailchimp
+            compteur_email_ms_graph += 1
+            if mail["address"].lower() in mailchimpMembersMails : #ne retourner que les contacts Outlook qui ne sont pas encore dans mailchimp
+                compteur_deja_dans_mailchimp += 1
+                APP.logger.debug("CONTACT déjà dans mailchimp ->  %s", str(mail['address']))
                 continue
 
             computed_fname = ""
@@ -221,6 +226,8 @@ def contact_ms_graph2mailchimpData():
                 societe = ".".join(d).upper()
             merge_fields = {'FNAME' : computed_fname, 'LNAME' : computed_lname, 'SOCIETE':societe}
             res.append({'displayName': contact['displayName'], 'email_address' : mail["address"], 'last_changed':'2000-01-01', 'status' : 'new', 'tags':[], 'merge_fields' : merge_fields})
+    APP.logger.debug("Tous contacts MSGRAPH hors domaine exclu: %s", str(compteur_email_ms_graph))
+    APP.logger.debug("Dejà dans mailchimp: %s", str(compteur_deja_dans_mailchimp))
     APP.logger.debug("RETOUR /contact_ms_graph2mailchimpData -> Nombre contacts : %s", str(len(res)))
     return jsonify(res)
 
