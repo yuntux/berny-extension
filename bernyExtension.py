@@ -208,7 +208,7 @@ def contact_ms_graph2mailchimpData():
             compteur_email_ms_graph += 1
             if mail["address"].lower() in mailchimpMembersMails : #ne retourner que les contacts Outlook qui ne sont pas encore dans mailchimp
                 compteur_deja_dans_mailchimp += 1
-                APP.logger.debug("CONTACT déjà dans mailchimp ->  %s", str(mail['address']))
+                #APP.logger.debug("CONTACT déjà dans mailchimp ->  %s", str(mail['address']))
                 continue
 
             computed_fname = ""
@@ -278,9 +278,9 @@ def mailchimpListMembers():
     else :
         with open(chemin_fichier, 'r') as j:
             data = json.loads(j.read())
-        data['last_changed'] = d_format
         changed_members = appelsApiMembres(data["last_changed"])
         APP.logger.debug('Nombre de membres ayant changé depuis %s : %s', data['last_changed'], str(len(changed_members)))
+        data['last_changed'] = d_format
         for changed_member in changed_members :
             maj = False
             for i in range(len(data['members'])):
