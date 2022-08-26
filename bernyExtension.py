@@ -225,7 +225,8 @@ def contact_ms_graph2mailchimpData():
                 d.pop()
                 societe = ".".join(d).upper()
             merge_fields = {'FNAME' : computed_fname, 'LNAME' : computed_lname, 'SOCIETE':societe}
-            res.append({'displayName': contact['displayName'], 'email_address' : mail["address"], 'last_changed':'2000-01-01', 'status' : 'new', 'tags':[], 'merge_fields' : merge_fields})
+            tagBD =  getMappingDomaineTags(mail["address"])
+            res.append({'displayName': contact['displayName'], 'email_address' : mail["address"], 'last_changed':'2000-01-01', 'status' : 'new', 'tags':[tagBD], 'merge_fields' : merge_fields})
     APP.logger.debug("Tous contacts MSGRAPH hors domaine exclu: %s", str(compteur_email_ms_graph))
     APP.logger.debug("Dejà dans mailchimp: %s", str(compteur_deja_dans_mailchimp))
     APP.logger.debug("RETOUR /contact_ms_graph2mailchimpData -> Nombre contacts : %s", str(len(res)))
@@ -311,6 +312,8 @@ def mailchimpAdd():
         return flask.redirect( url_for('login', redirect='/'))
     form = json.loads(request.form.getlist('values')[0])
     email_address =  form['email_address']
+    if 'tags' in form.keys():
+        form['added_tags'] = form['tags']
     return mailchimpAddUpdate("add", email_address, form)
 
 @APP.route('/mailchimpUpdate', methods=['PUT'])
@@ -373,6 +376,7 @@ def mailchimpAddUpdate(type_action, email_address, form):
         response["tags"] = []
         if ('tags' in form.keys()):
             response["tags"] = sorted(form['tags'])
+        incrementMappingDomaineTags(response["email_address"], response['tags'], response['last_changed'])
 
         return jsonify(response)
 
@@ -411,6 +415,9 @@ def majCache():
 
     if os.path.exists(config.FICHIER_MAPPING_DOMAINE_SOCIETES):
         os.remove(config.FICHIER_MAPPING_DOMAINE_SOCIETES)
+
+    if os.path.exists(config.FICHIER_MAPPING_DOMAINE_TAGS):
+        os.remove(config.FICHIER_MAPPING_DOMAINE_TAGS)
 
     if os.path.exists(config.FICHIER_CACHE_MEMBRES_MAILCHIMP):
         os.remove(config.FICHIER_CACHE_MEMBRES_MAILCHIMP)
@@ -483,6 +490,72 @@ def incrementMappingDomaineSocietes(address, societe, last_changed):
             json.dump(mapping, f, indent=4)
 
     
+def getMappingDomaineTags(address):
+    chemin_fichier = config.FICHIER_MAPPING_DOMAINE_TAGS
+    domain_target = address.split("@")[1]
+    if not os.path.exists(chemin_fichier):
+        mapping = {}
+        members = mailchimpListMembers()
+        for member in members :
+            domain = member['email_address'].split("@")[1]
+            tagList = member['tags']
+            if (len(tagList) == 0):
+                continue
+            if domain not in mapping.keys():
+                mapping[domain] = {}
+            for tag in tagList:
+                if not(tag.startswith(config.PREFIXE_MAPPING_DOMAINE_TAGS)):
+                    continue
+                if tag not in mapping[domain].keys():
+                    d = {'tag' : tag, 'member_last_change' : member['last_changed']}
+                    mapping[domain][tag] = d 
+                else :
+                    if (mapping[domain][tag]['member_last_change'] < member['last_changed']):
+                        mapping[domain][tag]['member_last_change'] = member['last_changed']
+
+        with open(chemin_fichier, 'w') as f:
+            json.dump(mapping, f, indent=4)
+
+    else :
+        with open(chemin_fichier, 'r') as j:
+            mapping = json.loads(j.read())
+
+    
+    if domain_target in mapping.keys():
+        mapping_domain = mapping[domain_target]
+        if len(mapping_domain) == 0:
+            return ""
+        mapping_ordered = list(dict(sorted(mapping_domain.items(), key=lambda item: item[1]['member_last_change'], reverse=True)).keys())
+        return mapping_ordered[0]
+    else : 
+        return ""
+
+def incrementMappingDomaineTags(address, tagList, last_changed):
+    chemin_fichier = config.FICHIER_MAPPING_DOMAINE_TAGS
+    if not os.path.exists(chemin_fichier):
+        return False
+    if (len(tagList) == 0):
+        return False
+    domain = address.split("@")[1]
+    with open(chemin_fichier, 'r') as j:
+        mapping = json.loads(j.read())
+    if domain not in mapping.keys():
+        mapping[domain] = {}
+    for tag in tagList:
+        if not(tag.startswith(config.PREFIXE_MAPPING_DOMAINE_TAGS)):
+            continue
+        if tag not in mapping[domain].keys():
+            d = {'tag' : tag, 'member_last_change' : last_changed}
+            mapping[domain][tag] = d
+        else :
+            if (mapping[domain][tag]['member_last_change'] < last_changed):
+                mapping[domain][tag]['member_last_change'] = last_changed
+
+    lock_incrementMappingDomaineTags = Lock() 
+    with lock_incrementMappingDomaineTags:
+        with open(chemin_fichier, 'w') as f:
+            json.dump(mapping, f, indent=4)
+
 
 @APP.route('/contact_ms_graph2mailchimp')
 def contact_ms_graph2mailchimp():
