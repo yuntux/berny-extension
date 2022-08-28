@@ -304,6 +304,15 @@ def mailchimpListMembers():
                 with open(chemin_fichier, 'w') as f:
                     json.dump(data, f, indent=4)
 
+    
+    #on supprime ne retourne pas les tags qui sont toujours dans le cache du membre mais qui n'existe plus sur Mailchimp (tags supprimés sans MAJ du cache des membres)
+    at = activeTagList()
+    for m in data['members']:
+        t=[]
+        for tag in m['tags'] :
+            if tag in at:
+              t.append(tag)
+        m['tags'] = t
     return data['members']
 
 @APP.route('/mailchimpAdd', methods=['POST'])
@@ -526,7 +535,10 @@ def getMappingDomaineTags(address):
         if len(mapping_domain) == 0:
             return []
         mapping_ordered = list(dict(sorted(mapping_domain.items(), key=lambda item: item[1]['member_last_change'], reverse=True)).keys())
-        return [mapping_ordered[0]]
+        at = activeTagList()
+        for tagBD in mapping_ordered : #on retourne le tag le plus récent du cache qui est toujours un tag valide
+            if tagBD in at:
+                return [tagBD]
     else : 
         return []
 
@@ -654,6 +666,11 @@ def getTagList():
 
     return data['tags']
 
+def activeTagList():
+    res = []
+    for t in getTagList():
+        res.append(t['name'])
+    return res
 
 @APP.route('/mailchimpArchiveMember', methods=["DELETE"])
 def mailchimpArchiveMember():
