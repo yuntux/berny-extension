@@ -226,7 +226,7 @@ def contact_ms_graph2mailchimpData():
                 societe = ".".join(d).upper()
             merge_fields = {'FNAME' : computed_fname, 'LNAME' : computed_lname, 'SOCIETE':societe}
             tagBD =  getMappingDomaineTags(mail["address"])
-            res.append({'displayName': contact['displayName'], 'email_address' : mail["address"], 'last_changed':'2000-01-01', 'status' : 'new', 'tags':[tagBD], 'merge_fields' : merge_fields})
+            res.append({'displayName': contact['displayName'], 'email_address' : mail["address"], 'last_changed':'2000-01-01', 'status' : 'new', 'tags':tagBD, 'merge_fields' : merge_fields})
     APP.logger.debug("Tous contacts MSGRAPH hors domaine exclu: %s", str(compteur_email_ms_graph))
     APP.logger.debug("Dejà dans mailchimp: %s", str(compteur_deja_dans_mailchimp))
     APP.logger.debug("RETOUR /contact_ms_graph2mailchimpData -> Nombre contacts : %s", str(len(res)))
@@ -524,11 +524,11 @@ def getMappingDomaineTags(address):
     if domain_target in mapping.keys():
         mapping_domain = mapping[domain_target]
         if len(mapping_domain) == 0:
-            return ""
+            return []
         mapping_ordered = list(dict(sorted(mapping_domain.items(), key=lambda item: item[1]['member_last_change'], reverse=True)).keys())
-        return mapping_ordered[0]
+        return [mapping_ordered[0]]
     else : 
-        return ""
+        return []
 
 def incrementMappingDomaineTags(address, tagList, last_changed):
     chemin_fichier = config.FICHIER_MAPPING_DOMAINE_TAGS

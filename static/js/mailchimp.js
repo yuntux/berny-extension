@@ -108,8 +108,12 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
 	},
 	  	
 	repaintChangesOnly: true,
-        columnAutoWidth: true,
+        columnAutoWidth: false,
+	allowColumnResizing: true,
+        columnResizingMode: 'nextColumn',
+	columnMinWidth: 5,
         allowColumnReordering: true,
+        showBorders: true,
 	sorting: {
       		mode: 'multiple',
     	},
@@ -224,6 +228,7 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
               },
             {
                 caption: "Statut",
+                width: 100,
 		allowEditing: false,
                 dataField:"status", 
 		lookup: {
