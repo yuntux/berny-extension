@@ -36,6 +36,7 @@ MAILCHIMP_PAGE_SIZE = 500
 
 DOSSIER_CACHE = "/dir/cache/directory"
 FICHIER_MAPPING_DOMAINE_SOCIETES = DOSSIER_CACHE+"mappingDomaineSocietes_"+MAILCHIMP_LIST_ID+".json"
+FICHIER_MAPPING_DOMAINE_TAGS = DOSSIER_CACHE+"mappingDomaineTags_"+MAILCHIMP_LIST_ID+".json"
 FICHIER_CACHE_MEMBRES_MAILCHIMP = DOSSIER_CACHE+"cacheMembresMailchimp_"+MAILCHIMP_LIST_ID+".json"
 FICHIER_CACHE_TAGS_MAILCHIMP = DOSSIER_CACHE+"cacheTagsMailchimp_"+MAILCHIMP_LIST_ID+".json"
 FICHIER_CACHE_LIST_MAILCHIMP = DOSSIER_CACHE+"cacheListMailchimp_"+MAILCHIMP_LIST_ID+".json"
@@ -43,6 +44,7 @@ CACHE_MEMBRES_MAILCHIMP_DELAI_MINUTE_LAST_CHANGED = -15 #Après récupération d
 CACHE_LIST_MAILCHIMP_DELAI_MINUTE = -720 #si le cache LIST a plus de Y minutes, alors il est complètement rechargé
 CACHE_TAGS_MAILCHIMP_DELAI_MINUTE = -15 #si le cache TAGS a plus de Z minutes, alors il est complètement rechargé
 
+PREFIXE_MAPPING_DOMAINE_TAGS = "Cible - BD "
 ############################################################################
 #           DONNEES INTERNES FLASK APP
 ############################################################################
