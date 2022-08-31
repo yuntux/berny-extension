@@ -226,7 +226,8 @@ def contact_ms_graph2mailchimpData():
                 societe = ".".join(d).upper()
             merge_fields = {'FNAME' : computed_fname, 'LNAME' : computed_lname, 'SOCIETE':societe}
             tagBD =  getMappingDomaineTags(mail["address"])
-            res.append({'displayName': contact['displayName'], 'email_address' : mail["address"], 'last_changed':'2000-01-01', 'status' : 'new', 'tags':tagBD, 'merge_fields' : merge_fields})
+            tagUser = getMappingUserTags(flask.session['mail'])
+            res.append({'displayName': contact['displayName'], 'email_address' : mail["address"], 'last_changed':'2000-01-01', 'status' : 'new', 'tags':tagBD+tagUser, 'merge_fields' : merge_fields})
     APP.logger.debug("Tous contacts MSGRAPH hors domaine exclu: %s", str(compteur_email_ms_graph))
     APP.logger.debug("Dejà dans mailchimp: %s", str(compteur_deja_dans_mailchimp))
     APP.logger.debug("RETOUR /contact_ms_graph2mailchimpData -> Nombre contacts : %s", str(len(res)))
@@ -568,6 +569,15 @@ def incrementMappingDomaineTags(address, tagList, last_changed):
         with open(chemin_fichier, 'w') as f:
             json.dump(mapping, f, indent=4)
 
+def getMappingUserTags(user_mail_address):
+    res = []
+    at = activeTagList()
+    if user_mail_address in config.MAPPING_USER_TAGS.keys():
+        tags = config.MAPPING_USER_TAGS[user_mail_address]
+        for tag in tags :
+            if tag in at :
+                res.append(tag)
+    return res
 
 @APP.route('/contact_ms_graph2mailchimp')
 def contact_ms_graph2mailchimp():

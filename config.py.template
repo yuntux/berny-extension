@@ -45,6 +45,9 @@ CACHE_LIST_MAILCHIMP_DELAI_MINUTE = -720 #si le cache LIST a plus de Y minutes, 
 CACHE_TAGS_MAILCHIMP_DELAI_MINUTE = -15 #si le cache TAGS a plus de Z minutes, alors il est complètement rechargé
 
 PREFIXE_MAPPING_DOMAINE_TAGS = "Cible - BD "
+MAPPING_USER_TAGS = {
+	'addresse.email@domaine.tld' : ['tag_par_defaut_utilisateur'],
+        }
 ############################################################################
 #           DONNEES INTERNES FLASK APP
 ############################################################################
