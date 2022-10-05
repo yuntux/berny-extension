@@ -7,6 +7,15 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
 
     var url = window.location.protocol + "//" + window.location.hostname;
 
+	
+    const queryString = window.location.search;
+    const urlParams = new URLSearchParams(queryString);
+    const filter = urlParams.get('filter');
+    const urlFilterValue = JSON.parse(decodeURIComponent(filter));
+    $('#filterText').text(window.location.origin + window.location.pathname + "?filter=" + filter);
+
+
+
     var xmlHttp = new XMLHttpRequest();
     xmlHttp.open( "GET",url + "/mailchimpMembersTags", false); // false for synchronous request
     xmlHttp.send( null );
@@ -127,6 +136,12 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
 	sorting: {
       		mode: 'multiple',
     	},
+	filterBuilder: {
+		onValueChanged: function (e) {
+		    $('#filterText').text(window.location.origin + window.location.pathname + "?filter=" +  encodeURIComponent(JSON.stringify(e.component.option('value'))));
+		},
+    	},
+	filterValue : urlFilterValue,
         filterRow: {
             visible: true,
             applyFilter: "auto"
