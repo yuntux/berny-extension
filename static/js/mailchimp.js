@@ -12,8 +12,11 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
     const urlParams = new URLSearchParams(queryString);
     const filter = urlParams.get('filter');
     const urlFilterValue = JSON.parse(decodeURIComponent(filter));
-    $('#filterText').text(window.location.origin + window.location.pathname + "?filter=" + filter);
-
+    if (urlParams.has('filter')) {
+        $('#filterText').text(window.location.origin + window.location.pathname + "?filter=" + filter);
+    } else {
+        $('#filterText').text(window.location.origin + window.location.pathname);
+    }
 
 
     var xmlHttp = new XMLHttpRequest();
@@ -36,7 +39,99 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
 	    {'code' : 'transactional', 'name' : 'transactional'},
     ];
 
-    $("#gridContainer").dxDataGrid({
+
+
+     $("#customActionsToolbar").dxToolbar({
+	     items: [
+		{
+		  location: 'before',
+		  widget: 'dxSelectBox', //'dxTagBox',
+		  name : 'massActionTagsList',
+		  options: {
+			dataSource: new DevExpress.data.ArrayStore({
+				data: mailchimpMemberTags,
+				key: "name"
+			}),
+			displayExpr: "name",
+			valueExpr: "name",
+			searchEnabled: true,
+			value : 'test-tag',
+			//placeholder: "Choissisez un tag...",
+		  },
+		},
+		{
+		  location: 'before',
+		  widget: 'dxButton',
+		  name : 'massAddTagsButton',
+		  options: {
+		    text: 'Ajouter ce tag sur tous les contacts sélectionnés',
+		    icon: 'add',
+		    disabled: true,
+		    onClick() {
+		        var grid = $("#gridContainer").dxDataGrid("instance"); 
+	      		var massActionToolbar = $("#customActionsToolbar").dxToolbar("instance");
+			t = massActionToolbar.option('items')[0].options.value;
+			console.log(t);
+			if (t == null){
+				alert("Vous devez sélectionner un tag");
+				return;
+			}
+			grid.getSelectedRowsData().forEach((row) => {
+				var store = grid.getDataSource()._store;
+				row.tags.push(t);
+				store.update(row.email_address, {'added_tags' : [t], 'tags' : row.tags});
+              		});
+			grid.repaint();
+                        //grid.refresh(); //permettrait de rappeler le serveur pour être certain d'afficher ce qui est enregistré sur mailchimp (comme lorsque l'on sauvegarde une fiche)...mais problème d'asynchronisme : on appelle le serveur avant que toutes les requêtes individuelles soient terminées
+		    },
+		  },
+		},
+		{
+		  location: 'before',
+		  widget: 'dxButton',
+		  name : 'massDeleteTagsButton',
+		  options: {
+		    text: 'Supprimer ce tag sur tous les contacts sélectionnés',
+		    icon: 'trash',
+		    disabled: true,
+		    onClick() {
+		        var grid = $("#gridContainer").dxDataGrid("instance"); 
+	      		var massActionToolbar = $("#customActionsToolbar").dxToolbar("instance");
+			t = massActionToolbar.option('items')[0].options.value;
+			console.log(t);
+			if (t == null){
+				alert("Vous devez sélectionner un tag");
+				return;
+			}
+			grid.getSelectedRowsData().forEach((row) => {
+				var store = grid.getDataSource()._store;
+				row.tags = row.tags.filter(function(item) {
+					return item !== t
+				});
+				store.update(row.email_address, {'deleted_tags' : [t], 'tags' : row.tags});
+				console.log(row.tags);
+              		});
+			grid.repaint();
+                        //grid.refresh(); //permettrait de rappeler le serveur pour être certain d'afficher ce qui est enregistré sur mailchimp (comme lorsque l'on sauvegarde une fiche)...mais problème d'asynchronisme : on appelle le serveur avant que toutes les requêtes individuelles soient terminées
+		    },
+		  },
+		},/*
+		{
+		  widget: 'dxButton',
+		  options: {
+		    text: 'Marquer à jour tous les contacts sélectionnés',
+		    icon: 'trash',
+		    disabled: true,
+		    onClick() {
+		    },
+		  },
+		},*/
+	     ],
+     });
+
+
+
+     $("#gridContainer").dxDataGrid({
 	dataSource: DevExpress.data.AspNet.createStore({
             key: "email_address",
             loadUrl: url +  loadUrlendpoint,
@@ -44,6 +139,33 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
             updateUrl: url + "/mailchimpUpdate",
             deleteUrl: url + "/mailchimpArchiveMember",
         }),
+	toolbar: {
+	      multiline:true,
+		/*
+	      items: [
+		"groupPanel",
+		"addRowButton",
+		"applyFilterButton",
+		"exportButton",
+		"columnChooserButton",
+		"searchPanel",
+	      ],*/
+	},
+	onSelectionChanged(data) {
+	      var massActionToolbar = $("#customActionsToolbar").dxToolbar("instance");
+		if (!data.selectedRowsData.length){
+			console.log('desactiver')
+			massActionToolbar.option('items')[1].options.disabled=true;
+			massActionToolbar.option('items')[2].options.disabled=true;
+			//massActionToolbar.option('items')[3].options.disabled=true;
+		} else {
+			console.log('activer')
+			massActionToolbar.option('items')[1].options.disabled=false;
+			massActionToolbar.option('items')[2].options.disabled=false;
+			//massActionToolbar.option('items')[3].options.disabled=false;
+		}
+		massActionToolbar.repaint();
+	},
 	editing: {
             mode: "popup",
             allowAdding: true,
@@ -136,6 +258,9 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
 	sorting: {
       		mode: 'multiple',
     	},
+	columnFixing: {
+            enabled: true
+        },
 	filterBuilder: {
 		onValueChanged: function (e) {
 		    $('#filterText').text(window.location.origin + window.location.pathname + "?filter=" +  encodeURIComponent(JSON.stringify(e.component.option('value'))));
@@ -165,6 +290,11 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
         columnChooser: {
             enabled: true,
             mode: "select", //"dragAndDrop"
+        },
+	selection: {
+           mode: 'multiple',
+	   selectAllMode: 'allPages', //"page" or "allPages"
+	   allowSelectAll: true,
         },
         grouping: {
             contextMenuEnabled: true
