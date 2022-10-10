@@ -40,9 +40,15 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
     ];
 
 
+    var gridSelectionMode = 'multiple';
+    if (showDiplayNameColumn == true){
+	gridSelectionMode = 'none';
+    }
+
      var tagMass = null;
 
      $("#customActionsToolbar").dxToolbar({
+	     visible : !showDiplayNameColumn,
 	     items: [
 		{
 		  location: 'before',
@@ -57,12 +63,13 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
 			valueExpr: "name",
 			searchEnabled: true,
 			showClearButton: true,
+           		width: 400,  
 			onValueChanged(data){
 				console.log(data);
 				tagMass = data.value;
-			}
+			},
 	//		value : 'test-tag',
-			//placeholder: "Choissisez un tag...",
+			placeholder: "Choissisez un tag à ajouter/supprimer en masse...",
 		  },
 		},
 		{
@@ -161,7 +168,6 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
      });
 
 
-
      $("#gridContainer").dxDataGrid({
 	dataSource: DevExpress.data.AspNet.createStore({
             key: "email_address",
@@ -170,23 +176,6 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
             updateUrl: url + "/mailchimpUpdate",
             deleteUrl: url + "/mailchimpArchiveMember",
         }),
-	/*
-	onSelectionChanged(data) {
-	      var massActionToolbar = $("#customActionsToolbar").dxToolbar("instance");
-		//TODO : trouver comment accéder à un item de la toolbar par son name et non son index dans la liste
-		if (!data.selectedRowsData.length){
-			console.log('desactiver')
-			massActionToolbar.option('items')[1].options.disabled=true;
-			massActionToolbar.option('items')[2].options.disabled=true;
-			//massActionToolbar.option('items')[3].options.disabled=true;
-		} else {
-			console.log('activer')
-			massActionToolbar.option('items')[1].options.disabled=false;
-			massActionToolbar.option('items')[2].options.disabled=false;
-			//massActionToolbar.option('items')[3].options.disabled=false;
-		}
-		massActionToolbar.repaint(); // TODO : accéder aux composant bouton pour ne repaint que les 3 boutons
-	},*/
 	editing: {
             mode: "popup",
             allowAdding: true,
@@ -313,9 +302,9 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
             mode: "select", //"dragAndDrop"
         },
 	selection: {
-           mode: 'multiple',
-	   selectAllMode: 'allPages', //"page" or "allPages"
+           mode: gridSelectionMode,
 	   allowSelectAll: true,
+	   selectAllMode: 'allPages', //"page" or "allPages"
         },
         grouping: {
             contextMenuEnabled: true
