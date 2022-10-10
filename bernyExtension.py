@@ -477,25 +477,25 @@ def getMappingDomaineSocietes(address):
         return ""
 
 def incrementMappingDomaineSocietes(address, societe, last_changed):
-    chemin_fichier = config.FICHIER_MAPPING_DOMAINE_SOCIETES
-    if not os.path.exists(chemin_fichier):
-        return False
-    if (len(societe) == 0):
-        return False
-    domain = address.split("@")[1]
-    with open(chemin_fichier, 'r') as j:
-        mapping = json.loads(j.read())
-    if domain not in mapping.keys():
-        mapping[domain] = {}
-    if societe not in mapping[domain].keys():
-        d = {'societe' : societe, 'member_last_change' : last_changed}
-        mapping[domain][societe] = d
-    else :
-        if (mapping[domain][societe]['member_last_change'] < last_changed):
-            mapping[domain][societe]['member_last_change'] = last_changed
-
     lock_incrementMappingDomaineSocietes = Lock() 
     with lock_incrementMappingDomaineSocietes:
+        chemin_fichier = config.FICHIER_MAPPING_DOMAINE_SOCIETES
+        if not os.path.exists(chemin_fichier):
+            return False
+        if (len(societe) == 0):
+            return False
+        domain = address.split("@")[1]
+        with open(chemin_fichier, 'r') as j:
+            mapping = json.loads(j.read())
+        if domain not in mapping.keys():
+            mapping[domain] = {}
+        if societe not in mapping[domain].keys():
+            d = {'societe' : societe, 'member_last_change' : last_changed}
+            mapping[domain][societe] = d
+        else :
+            if (mapping[domain][societe]['member_last_change'] < last_changed):
+                mapping[domain][societe]['member_last_change'] = last_changed
+
         with open(chemin_fichier, 'w') as f:
             json.dump(mapping, f, indent=4)
 
@@ -544,28 +544,28 @@ def getMappingDomaineTags(address):
         return []
 
 def incrementMappingDomaineTags(address, tagList, last_changed):
-    chemin_fichier = config.FICHIER_MAPPING_DOMAINE_TAGS
-    if not os.path.exists(chemin_fichier):
-        return False
-    if (len(tagList) == 0):
-        return False
-    domain = address.split("@")[1]
-    with open(chemin_fichier, 'r') as j:
-        mapping = json.loads(j.read())
-    if domain not in mapping.keys():
-        mapping[domain] = {}
-    for tag in tagList:
-        if not(tag.startswith(config.PREFIXE_MAPPING_DOMAINE_TAGS)):
-            continue
-        if tag not in mapping[domain].keys():
-            d = {'tag' : tag, 'member_last_change' : last_changed}
-            mapping[domain][tag] = d
-        else :
-            if (mapping[domain][tag]['member_last_change'] < last_changed):
-                mapping[domain][tag]['member_last_change'] = last_changed
-
     lock_incrementMappingDomaineTags = Lock() 
     with lock_incrementMappingDomaineTags:
+        chemin_fichier = config.FICHIER_MAPPING_DOMAINE_TAGS
+        if not os.path.exists(chemin_fichier):
+            return False
+        if (len(tagList) == 0):
+            return False
+        domain = address.split("@")[1]
+        with open(chemin_fichier, 'r') as j:
+            mapping = json.loads(j.read())
+        if domain not in mapping.keys():
+            mapping[domain] = {}
+        for tag in tagList:
+            if not(tag.startswith(config.PREFIXE_MAPPING_DOMAINE_TAGS)):
+                continue
+            if tag not in mapping[domain].keys():
+                d = {'tag' : tag, 'member_last_change' : last_changed}
+                mapping[domain][tag] = d
+            else :
+                if (mapping[domain][tag]['member_last_change'] < last_changed):
+                    mapping[domain][tag]['member_last_change'] = last_changed
+
         with open(chemin_fichier, 'w') as f:
             json.dump(mapping, f, indent=4)
 

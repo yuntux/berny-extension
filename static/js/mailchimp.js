@@ -40,6 +40,7 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
     ];
 
 
+     var tagMass = null;
 
      $("#customActionsToolbar").dxToolbar({
 	     items: [
@@ -55,7 +56,12 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
 			displayExpr: "name",
 			valueExpr: "name",
 			searchEnabled: true,
-			value : 'test-tag',
+			showClearButton: true,
+			onValueChanged(data){
+				console.log(data);
+				tagMass = data.value;
+			}
+	//		value : 'test-tag',
 			//placeholder: "Choissisez un tag...",
 		  },
 		},
@@ -66,23 +72,36 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
 		  options: {
 		    text: 'Ajouter ce tag sur tous les contacts sélectionnés',
 		    icon: 'add',
-		    disabled: true,
+		    disabled: false,
 		    onClick() {
-		        var grid = $("#gridContainer").dxDataGrid("instance"); 
-	      		var massActionToolbar = $("#customActionsToolbar").dxToolbar("instance");
-			t = massActionToolbar.option('items')[0].options.value;
+			t = tagMass;
 			console.log(t);
 			if (t == null){
 				alert("Vous devez sélectionner un tag");
 				return;
 			}
-			grid.getSelectedRowsData().forEach((row) => {
+			
+		        grid = $("#gridContainer").dxDataGrid("instance"); 
+			if (!grid.getSelectedRowsData().length){
+				alert("Vous devez sélectionner au moins une ligne");
+				return;
+			}
+			count = 0;
+			len = grid.getSelectedRowsData().length;
+			grid.getSelectedRowsData().reverse().forEach((row) => {
 				var store = grid.getDataSource()._store;
 				row.tags.push(t);
-				store.update(row.email_address, {'added_tags' : [t], 'tags' : row.tags});
+				store.update(row.email_address, {'added_tags' : [t], 'tags' : row.tags})
+				        .done(function (dataObj, key) {
+						count = count + 1;
+						if (count == len){
+            						grid.getDataSource().reload();
+						}
+        				})
+        				.fail(function (error) { 
+						alert('Erreur lors de la mise à jour de '+row.email_address);
+					});
               		});
-			grid.repaint();
-                        //grid.refresh(); //permettrait de rappeler le serveur pour être certain d'afficher ce qui est enregistré sur mailchimp (comme lorsque l'on sauvegarde une fiche)...mais problème d'asynchronisme : on appelle le serveur avant que toutes les requêtes individuelles soient terminées
 		    },
 		  },
 		},
@@ -93,26 +112,38 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
 		  options: {
 		    text: 'Supprimer ce tag sur tous les contacts sélectionnés',
 		    icon: 'trash',
-		    disabled: true,
+		    disabled: false,
 		    onClick() {
-		        var grid = $("#gridContainer").dxDataGrid("instance"); 
-	      		var massActionToolbar = $("#customActionsToolbar").dxToolbar("instance");
-			t = massActionToolbar.option('items')[0].options.value;
+			t = tagMass;
 			console.log(t);
 			if (t == null){
 				alert("Vous devez sélectionner un tag");
 				return;
 			}
-			grid.getSelectedRowsData().forEach((row) => {
+		        grid = $("#gridContainer").dxDataGrid("instance"); 
+			if (!grid.getSelectedRowsData().length){
+				alert("Vous devez sélectionner au moins une ligne");
+				return;
+			}
+			count = 0;
+			len = grid.getSelectedRowsData().length;
+			grid.getSelectedRowsData().reverse().forEach((row) => {
 				var store = grid.getDataSource()._store;
 				row.tags = row.tags.filter(function(item) {
 					return item !== t
 				});
-				store.update(row.email_address, {'deleted_tags' : [t], 'tags' : row.tags});
 				console.log(row.tags);
+				store.update(row.email_address, {'deleted_tags' : [t], 'tags' : row.tags})
+				        .done(function (dataObj, key) {
+						count = count + 1;
+						if (count == len){
+            						grid.getDataSource().reload();
+						}
+        				})
+        				.fail(function (error) { 
+						alert('Erreur lors de la mise à jour de '+row.email_address);
+					});
               		});
-			grid.repaint();
-                        //grid.refresh(); //permettrait de rappeler le serveur pour être certain d'afficher ce qui est enregistré sur mailchimp (comme lorsque l'on sauvegarde une fiche)...mais problème d'asynchronisme : on appelle le serveur avant que toutes les requêtes individuelles soient terminées
 		    },
 		  },
 		},/*
@@ -139,20 +170,10 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
             updateUrl: url + "/mailchimpUpdate",
             deleteUrl: url + "/mailchimpArchiveMember",
         }),
-	toolbar: {
-	      multiline:true,
-		/*
-	      items: [
-		"groupPanel",
-		"addRowButton",
-		"applyFilterButton",
-		"exportButton",
-		"columnChooserButton",
-		"searchPanel",
-	      ],*/
-	},
+	/*
 	onSelectionChanged(data) {
 	      var massActionToolbar = $("#customActionsToolbar").dxToolbar("instance");
+		//TODO : trouver comment accéder à un item de la toolbar par son name et non son index dans la liste
 		if (!data.selectedRowsData.length){
 			console.log('desactiver')
 			massActionToolbar.option('items')[1].options.disabled=true;
@@ -164,8 +185,8 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
 			massActionToolbar.option('items')[2].options.disabled=false;
 			//massActionToolbar.option('items')[3].options.disabled=false;
 		}
-		massActionToolbar.repaint();
-	},
+		massActionToolbar.repaint(); // TODO : accéder aux composant bouton pour ne repaint que les 3 boutons
+	},*/
 	editing: {
             mode: "popup",
             allowAdding: true,
