@@ -44,6 +44,10 @@ MSGRAPH = OAUTH.remote_app(
     access_token_url=config.AUTHORITY_URL + config.TOKEN_ENDPOINT,
     authorize_url=config.AUTHORITY_URL + config.AUTH_ENDPOINT)
 
+@APP.before_request
+def check_under_maintenance():
+    if config.MODE_MAINTENANCE:
+        return "<h1>Beta.tasmane est en maintenance.</h1>", 503
 
 @APP.route('/')
 def homepage():

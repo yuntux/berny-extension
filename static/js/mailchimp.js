@@ -412,7 +412,19 @@ function build_datagrid_widget(loadUrlendpoint,showDiplayNameColumn) {
                 caption: "Mail",
                 dataField:"email_address", 
 		allowHeaderFiltering: false,
-	    },{
+	    },/*{
+            	caption: "Nom domaine email",
+            	calculateCellValue: function(rowData) {
+                	return rowData.email_address.split('@').pop();
+            	},
+		visible:false,
+		allowEditing: false,
+		allowSorting : true,
+		//allowFiltering : true,
+		allowSearch : true,
+		allowHeaderFiltering: true,
+		allowGrouping : true,
+            },*/{
                 caption: "Prénom",
                 dataField:"merge_fields.FNAME", 
 		allowHeaderFiltering: false,
