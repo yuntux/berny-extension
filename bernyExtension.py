@@ -880,6 +880,6 @@ if __name__ == '__main__':
     handler.setFormatter(formatter)
     root.addHandler(handler)
 
-    APP.run(host="0.0.0.0", port=443, debug=not(list_prod_active()), ssl_context=(config.CERTIF_FULLCHAIN_PATH, config.CERTIF_PRIVKEY_PATH))
+    APP.run(host="0.0.0.0", port=445, debug=not(list_prod_active()), ssl_context=(config.CERTIF_FULLCHAIN_PATH, config.CERTIF_PRIVKEY_PATH))
 
 
